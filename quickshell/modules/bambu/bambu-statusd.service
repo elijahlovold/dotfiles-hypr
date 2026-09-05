@@ -1,0 +1,14 @@
+[Unit]
+Description=Bambu Lab printer status bridge (MQTT -> unix socket)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/quickshell/modules/bambu/bambu-statusd.env
+ExecStart=/usr/bin/python3 %h/.config/quickshell/modules/bambu/bambu_statusd.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

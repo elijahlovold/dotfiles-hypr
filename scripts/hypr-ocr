@@ -1,0 +1,15 @@
+#!/bin/sh
+
+region=$(slurp) || exit 0
+[ -z "$region" ] && exit 0
+
+text=$(grim -g "$region" - | tesseract - - -l eng 2>/dev/null)
+
+if [ -z "$text" ]; then
+    notify-send -a Quickshell -t 2000 "OCR" "No text found"
+    exit 0
+fi
+
+printf '%s' "$text" | wl-copy
+preview=$(printf '%s' "$text" | tr '\n' ' ' | cut -c1-120)
+notify-send -a Quickshell -t 4000 "OCR copied to clipboard" "$preview"

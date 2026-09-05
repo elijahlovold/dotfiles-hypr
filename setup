@@ -1,0 +1,51 @@
+#!/bin/sh
+
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CONFIG_HOME=${XDG_CONFIG_HOME:-"$HOME/.config"}
+BIN_DIR=${XDG_BIN_HOME:-"$HOME/.local/bin"}
+
+die() {
+    printf '%s\n' "error: $*" >&2
+    exit 1
+}
+
+link() {
+    src=$1
+    dst=$2
+
+    [ -e "$src" ] || die "source does not exist: $src"
+
+    if [ -L "$dst" ]; then
+        current=$(readlink "$dst")
+        [ "$current" = "$src" ] && return 0
+        die "symlink already exists and points elsewhere: $dst -> $current"
+    fi
+
+    if [ -e "$dst" ]; then
+        die "destination already exists: $dst"
+    fi
+
+    ln -s "$src" "$dst"
+    printf 'linked: %s -> %s\n' "$dst" "$src"
+}
+
+mkdir -p "$CONFIG_HOME" "$BIN_DIR" ||
+    die "failed to create target directories"
+
+# Config directories
+link "$SCRIPT_DIR/hypr" "$CONFIG_HOME/hypr"
+link "$SCRIPT_DIR/quickshell" "$CONFIG_HOME/quickshell"
+
+# Scripts
+if [ -d "$SCRIPT_DIR/scripts" ]; then
+    for script in "$SCRIPT_DIR/scripts"/*; do
+        [ -f "$script" ] || continue
+
+        name=$(basename "$script")
+        link "$script" "$BIN_DIR/$name"
+    done
+fi
+
+printf '%s\n' "desktop-hypr setup complete"
