@@ -21,24 +21,10 @@ hl.bind(mod .. " + W", hl.dsp.layout("fit active"))
 hl.bind(mod .. " + E", hl.dsp.layout("fit toend"))
 
 -- Move focus with vim keys
-local function focus_or_workspace(direction, workspace_direction)
-    local before = hl.get_active_window()
-    hl.dispatch(hl.dsp.layout(direction))
-    local after = hl.get_active_window()
-
-    if before == after then
-        hl.dispatch(hl.dsp.focus({
-            workspace = workspace_direction,
-            on_current_monitor = true,
-        }))
-    end
-end
-
-hl.bind(mod .. " + K", function() focus_or_workspace("focus u", "m-1") end)
-hl.bind(mod .. " + J", function() focus_or_workspace("focus d", "m+1") end)
-hl.bind(mod .. " + Up", function() focus_or_workspace("focus u", "m-1") end)
-hl.bind(mod .. " + Down", function() focus_or_workspace("focus d", "m+1") end)
-
+hl.bind(mod .. " + K", hl.dsp.focus({ direction = "u" }))
+hl.bind(mod .. " + J", hl.dsp.focus({ direction = "d" }))
+hl.bind(mod .. " + Up", hl.dsp.focus({ direction = "u" }))
+hl.bind(mod .. " + Down", hl.dsp.focus({ direction = "d" }))
 hl.bind(mod .. " + H", hl.dsp.focus({ direction = "l" }))
 hl.bind(mod .. " + L", hl.dsp.focus({ direction = "r" }))
 hl.bind(mod .. " + Left",  hl.dsp.focus({ direction = "l" }))
@@ -202,6 +188,8 @@ hl.bind(mod .. " + B", hl.dsp.exec_cmd("qs ipc call keybinds toggle"))
 
 hl.bind(mod .. " + Return", hl.dsp.exec_cmd(terminal))
 hl.bind(mod .. " + X", hl.dsp.exec_cmd("firefox"))
+hl.bind(mod .. " + ALT + X", hl.dsp.exec_cmd("firefox --private-window"))
+hl.bind(mod .. " + SHIFT + X", hl.dsp.exec_cmd("google-chrome"))
 hl.bind(mod .. " + O", hl.dsp.focus({ last = true }))
 
 hl.bind(mod .. " + SHIFT + O", hl.dsp.exec_cmd("alacritty --working-directory $(mount.sh)"))
