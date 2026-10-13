@@ -25,6 +25,178 @@ PillPopup {
         objects: [popup.sink, popup.source]
     }
 
+    // Live signal for one node via PwNodePeakMonitor - for a sink that's
+    // what is actually being sent to the device, for a source what the mic
+    // is capturing, so "is audio really going through this device" is
+    // visible at a glance. Per-channel meters (fast attack, slow fall, peak
+    // hold) plus a short scrolling history strip.
+    //
+    // Fixed height regardless of channel count: the channel list only
+    // arrives once the monitor connects, after the popup surface is already
+    // mapped, and popup surfaces don't reliably resize after mapping - so
+    // rows share a fixed block instead of each adding height.
+    component LevelMeter: Column {
+        id: meter
+
+        required property PwNode node
+
+        // Peaks are linear amplitude; meters read in dB (-30..0) - anything
+        // quieter than -30 dB sits at zero.
+        function toPos(p) {
+            if (p <= 0.001)
+                return 0;
+            return Math.max(0, Math.min(1, 1 + (20 * Math.log10(p)) / 30));
+        }
+        function channelLabel(ch) {
+            const s = PwAudioChannel.toString(ch);
+            if (s === "FrontLeft")
+                return "L";
+            if (s === "FrontRight")
+                return "R";
+            if (s === "Mono")
+                return "M";
+            return s.replace(/[a-z]/g, "");
+        }
+
+        property var levels: [] // per channel, smoothed 0..1
+        property var holds: [] // per channel, peak-hold position
+        property var holdAges: [] // ticks since each hold was set
+        property var history: [] // overall level per tick, newest last
+        readonly property int historyLength: Math.max(1, Math.floor(meter.width / 3))
+        readonly property bool silent: meter.history.length >= meter.historyLength && meter.history.every(v => v === 0)
+
+        spacing: 6
+
+        PwNodePeakMonitor {
+            id: monitor
+            node: meter.node
+        }
+
+        Timer {
+            interval: 33
+            running: true
+            repeat: true
+            onTriggered: {
+                const peaks = monitor.peaks;
+                const levels = [], holds = [], ages = [];
+                for (let i = 0; i < peaks.length; i++) {
+                    const level = Math.max(meter.toPos(peaks[i]), (meter.levels[i] ?? 0) - 0.04);
+                    let hold = meter.holds[i] ?? 0;
+                    let age = (meter.holdAges[i] ?? 0) + 1;
+                    if (level >= hold) {
+                        hold = level;
+                        age = 0;
+                    } else if (age > 30) {
+                        hold = Math.max(level, hold - 0.02);
+                    }
+                    levels.push(level);
+                    holds.push(hold);
+                    ages.push(age);
+                }
+                meter.levels = levels;
+                meter.holds = holds;
+                meter.holdAges = ages;
+                meter.history = meter.history.concat([meter.toPos(monitor.peak)]).slice(-meter.historyLength);
+                historyCanvas.requestPaint();
+            }
+        }
+
+        Item {
+            id: channelBlock
+            readonly property int count: Math.max(1, monitor.channels.length)
+            readonly property real rowHeight: channelBlock.height / channelBlock.count
+            width: meter.width
+            height: 16
+
+            Repeater {
+                model: monitor.channels
+                delegate: Item {
+                    id: channelRow
+                    required property int index
+                    required property var modelData
+                    readonly property real level: meter.levels[channelRow.index] ?? 0
+                    readonly property real hold: meter.holds[channelRow.index] ?? 0
+                    readonly property bool showLabel: channelBlock.count <= 2
+
+                    y: channelRow.index * channelBlock.rowHeight
+                    width: channelBlock.width
+                    height: channelBlock.rowHeight
+
+                    Text {
+                        id: channelLabel
+                        visible: channelRow.showLabel
+                        width: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: meter.channelLabel(channelRow.modelData)
+                        color: Theme.dimText
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSize - 6
+                    }
+
+                    Item {
+                        anchors.left: channelRow.showLabel ? channelLabel.right : parent.left
+                        anchors.leftMargin: channelRow.showLabel ? 4 : 0
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: Math.max(2, Math.min(4, channelRow.height - 2))
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: height / 2
+                            color: Theme.withAlpha(Theme.dimText, 0.35)
+                        }
+                        Rectangle {
+                            width: parent.width * channelRow.level
+                            height: parent.height
+                            radius: height / 2
+                            color: Theme.accent
+                        }
+                        // Peak hold - red once it touches 0 dBFS (clipping).
+                        Rectangle {
+                            visible: channelRow.hold > 0.01
+                            x: (parent.width - width) * channelRow.hold
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 2
+                            height: parent.height + 2
+                            color: channelRow.hold >= 0.995 ? "#ff4d4d" : Theme.text
+                        }
+                    }
+                }
+            }
+        }
+
+        Item {
+            width: meter.width
+            height: 20
+
+            Canvas {
+                id: historyCanvas
+                anchors.fill: parent
+                onPaint: {
+                    const ctx = getContext("2d");
+                    ctx.reset();
+                    const h = meter.history;
+                    const mid = height / 2;
+                    ctx.fillStyle = Theme.accent;
+                    for (let i = 0; i < h.length; i++) {
+                        const x = width - (h.length - i) * 3;
+                        const amp = Math.max(0.5, h[i] * mid);
+                        ctx.fillRect(x, mid - amp, 2, amp * 2);
+                    }
+                }
+            }
+
+            Text {
+                visible: meter.silent
+                anchors.centerIn: parent
+                text: "no signal"
+                color: Theme.dimText
+                font.family: Theme.fontFamily
+                font.pixelSize: Theme.fontSize - 5
+            }
+        }
+    }
+
     // One "Output"/"Input" block: header with mute toggle, volume slider for
     // the current default, then the selectable device list. Inline
     // components don't see this file's ids, hence everything is passed in.
@@ -122,6 +294,11 @@ PillPopup {
                 }
                 onWheel: wheel => section.setVolume(section.volume + (wheel.angleDelta.y > 0 ? 0.05 : -0.05))
             }
+        }
+
+        LevelMeter {
+            node: section.current
+            width: section.width
         }
 
         Repeater {
