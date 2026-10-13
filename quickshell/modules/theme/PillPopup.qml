@@ -54,14 +54,39 @@ PopupWindow {
     signal vimAction(string name, int count)
     signal keyboardActivated
 
-    function close() {
+    // Window that had focus before this popup took the keyboard - handed
+    // back on Escape. Not on a click outside (the click already chose where
+    // focus goes), and not when an action launches its own window (pass
+    // restoreFocus = false, e.g. Calendar opening a note in a new terminal -
+    // Hyprland focuses that window when it maps).
+    property string restoreAddress: ""
+    property bool closing: false
+
+    function close(restoreFocus) {
+        if (popup.closing)
+            return;
+        popup.closing = true;
+        if (restoreFocus !== false && popup.keyboardActive && popup.restoreAddress.length > 0)
+            popup.refocus(popup.restoreAddress);
         popup.keyboardActive = false;
         if (popup.anchorItem && popup.anchorItem.previewOpen !== undefined)
             popup.anchorItem.previewOpen = false;
     }
 
+    // Detached + short delay: the popup (and its focus grab) is torn down
+    // right after this, and the refocus has to land after the grab release
+    // or Hyprland drops focus again. The process outlives the popup.
+    function refocus(address) {
+        const addr = address.startsWith("0x") ? address : "0x" + address;
+        Quickshell.execDetached(["sh", "-c", 'sleep 0.05; hyprctl dispatch "$1"', "sh",
+            `hl.dsp.focus({ window = "address:${addr}" })`]);
+    }
+
     function activateKeyboard() {
+        if (popup.closing)
+            return;
         if (!popup.keyboardActive) {
+            popup.restoreAddress = Hyprland.activeToplevel?.address ?? "";
             popup.keyboardActive = true;
             popup.keyboardActivated();
         }
@@ -94,7 +119,7 @@ PopupWindow {
         active: popup.keyboardActive && popup.visible
         onCleared: {
             if (popup.keyboardActive)
-                popup.close();
+                popup.close(false);
         }
     }
 
@@ -303,15 +328,23 @@ PopupWindow {
 
         // Click anywhere inside -> take keyboard focus. A passive grab on top
         // of everything, so the clicked control underneath still gets it.
+        // Taken only after the button is released (and a tick later): taking
+        // the focus grab mid-click made Hyprland re-send pointer focus, which
+        // cancelled the click on whatever was under the cursor.
         Item {
             anchors.fill: parent
             TapHandler {
                 gesturePolicy: TapHandler.DragThreshold
                 onPressedChanged: {
-                    if (pressed)
-                        popup.activateKeyboard();
+                    if (!pressed)
+                        focusAfterClick.restart();
                 }
             }
+        }
+        Timer {
+            id: focusAfterClick
+            interval: 0
+            onTriggered: popup.activateKeyboard()
         }
     }
 }

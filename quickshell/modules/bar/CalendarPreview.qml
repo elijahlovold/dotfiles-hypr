@@ -29,7 +29,7 @@ PillPopup {
 
     // Keyboard cursor (vim motions): h/l a day, j/k a week, n/p a month,
     // gg/G first/last day of the month, 0 back to today, Enter opens that
-    // day's note (like clicking it) and closes the popup. Starts on today;
+    // day's note (same as clicking it). Starts on today;
     // the shown month follows the cursor.
     property var cursor: new Date(popup.todayDate.getFullYear(), popup.todayDate.getMonth(), popup.todayDate.getDate())
     readonly property string cursorKey: popup.dateKey(popup.cursor.getFullYear(), popup.cursor.getMonth(), popup.cursor.getDate())
@@ -87,7 +87,6 @@ PillPopup {
             break;
         case "select":
             popup.openDailyNote(c.getFullYear(), c.getMonth(), c.getDate());
-            popup.close();
             break;
         }
     }
@@ -121,6 +120,8 @@ PillPopup {
         }
     }
 
+    // Opens in a new terminal and closes the popup without handing focus
+    // back to the previous window, so the new terminal keeps it.
     function openDailyNote(year, month, day) {
         const date = String(year) + "-"
             + String(month + 1).padStart(2, "0") + "-"
@@ -128,6 +129,7 @@ PillPopup {
         Quickshell.execDetached([
             "alacritty", "-e", "sh", "-c", 'nvim "$(todays-notes "$1")"', "sh", date
         ]);
+        popup.close(false);
     }
 
     onDisplayDateChanged: rebuildGrid()
