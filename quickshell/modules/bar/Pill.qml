@@ -30,6 +30,10 @@ Rectangle {
     // Marker + open-popup count, found/maintained by PillPopup.
     readonly property bool isPill: true
     property int openPopups: 0
+    // Set by BarPopups when a popup is opened from the keyboard rather than
+    // by hovering - PillPopup then closes it itself if the cursor never
+    // comes over (there'd be no hover-out to trigger the usual close).
+    property bool summoned: false
     readonly property bool expanded: root.openPopups > 0
 
     radius: 8

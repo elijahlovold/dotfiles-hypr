@@ -161,6 +161,23 @@ Singleton {
         "y": { icon: "󱐋  ", label: "Yazi",    cmd: "kitty -e zsh -c yazi" },
       },
 
+      // Super+P - open a bar popup from the keyboard (lightning-strike
+      // reveal, see modules/common/BarPopups.qml + modules/bolt).
+      "popups": {
+        "m": { icon: "\uf001  ", label: "Music", cmd: "qs ipc call barpopup open music" },
+        "s": { icon: "\uf028  ", label: "Sound", cmd: "qs ipc call barpopup open sound" },
+        "w": { icon: "\uf1eb  ", label: "Wi-Fi", cmd: "qs ipc call barpopup open wifi" },
+        "d": { icon: "\uf287  ", label: "Drives", cmd: "qs ipc call barpopup open drives" },
+        "r": { icon: "\uf03d  ", label: "Record", cmd: "qs ipc call barpopup open screenrec" },
+        "e": { icon: "\uf1e6  ", label: "Serial", cmd: "qs ipc call barpopup open serial" },
+        "c": { icon: "\uf073  ", label: "Calendar", cmd: "qs ipc call barpopup open calendar" },
+        "p": { icon: "\uf1fb  ", label: "Color picker", cmd: "qs ipc call barpopup open colorpicker" },
+        "u": { icon: "\uf1ec  ", label: "Unit tools", cmd: "qs ipc call barpopup open unittools" },
+        "t": { icon: "\uf53f  ", label: "Theme", cmd: "qs ipc call barpopup open theme" },
+        "n": { icon: "\uf0f3  ", label: "Notifications", cmd: "qs ipc call barpopup open notifications" },
+        "b": { icon: "\uf02f  ", label: "Bambu", cmd: "qs ipc call barpopup open bambu" },
+        "y": { icon: "\u{f11ef}  ", label: "Stator", cmd: "qs ipc call barpopup open stator" },
+      },
       "stator": {
         "b": { icon: "󱎫  ", label: "Break",      cmd: "stator-rs --set-state break" },
         "c": { icon: "  ", label: "Chillin",    cmd: "stator-rs --set-state chill" },

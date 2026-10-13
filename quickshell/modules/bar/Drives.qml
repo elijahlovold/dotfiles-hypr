@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.modules.theme
+import qs.modules.common
 
 // Removable drives + MTP phones (state in DrivesState.qml, event-driven). Same
 // collapse-when-empty convention as SerialWatcher.qml - invisible unless
@@ -67,6 +68,12 @@ Item {
             if (!(previewLoader.item?.hovered ?? false))
                 root.previewOpen = false;
         }
+    }
+
+    // Keyboard/IPC open: qs ipc call barpopup open drives
+    PopupTarget {
+        name: "drives"
+        widget: root
     }
 
     Loader {

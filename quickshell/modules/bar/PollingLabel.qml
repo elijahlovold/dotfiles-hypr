@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.modules.theme
+import qs.modules.common
 
 // Generic "run a script on an interval, show its stdout" widget - the QML
 // equivalent of an i3status-rust `custom` block / waybar `custom/*` module.
@@ -19,6 +20,9 @@ Text {
     // `required property Item anchorItem` and `readonly property bool hovered`
     // (see MusicPreview.qml/CalendarPreview.qml for the established shape).
     property Component popupComponent: null
+    // Name for keyboard/IPC opening (qs ipc call barpopup open <name>);
+    // empty = not registered.
+    property string popupName: ""
 
     property string output: ""
     property bool previewOpen: false
@@ -94,6 +98,11 @@ Text {
             if (!(previewLoader.item?.hovered ?? false))
                 root.previewOpen = false;
         }
+    }
+
+    PopupTarget {
+        name: root.popupComponent !== null ? root.popupName : ""
+        widget: root
     }
 
     Loader {

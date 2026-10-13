@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
 import Quickshell
+import qs.modules.theme
 
 // Popup that grows out of the bottom of its Pill as one continuous shape -
 // the pill's side walls flare out through concave fillets into the card
@@ -150,8 +151,28 @@ PopupWindow {
             popup.pill.openPopups++;
     }
     Component.onDestruction: {
-        if (popup.pill?.isPill)
+        if (popup.pill?.isPill) {
             popup.pill.openPopups = Math.max(0, popup.pill.openPopups - 1);
+            popup.pill.summoned = false;
+        }
+    }
+
+    // Opened from the keyboard (BarPopups / Super+P): there's no hover-out
+    // to close it, so close after a few seconds unless the cursor arrives -
+    // once it does, the widget's normal hover-out close takes over.
+    readonly property bool summoned: popup.pill?.summoned ?? false
+    onHoveredChanged: {
+        if (popup.hovered && popup.summoned)
+            popup.pill.summoned = false;
+    }
+    Timer {
+        running: popup.summoned && !popup.hovered
+        interval: 4000
+        onTriggered: {
+            popup.pill.summoned = false;
+            if (popup.anchorItem && popup.anchorItem.previewOpen !== undefined)
+                popup.anchorItem.previewOpen = false;
+        }
     }
 
     visible: true

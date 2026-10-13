@@ -7,6 +7,7 @@ PollingLabel {
     command: ["stator-rs", "--get-state"]
     interval: 1000
     prefix: "󱇯  "
+    popupName: "stator"
     leftClickCommand: ["qs", "ipc", "call", "keytree", "toggle", "stator"]
     popupComponent: Component {
         StatorPreview {

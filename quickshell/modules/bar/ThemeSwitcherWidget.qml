@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.modules.theme
+import qs.modules.common
 
 // Bar button + dropdown for ThemeManager's structural theme (Minimal/
 // Cyber/Glass - shapes/motion, not the wallust palette). Same click-toggle-
@@ -59,6 +60,12 @@ Item {
             if (!(previewLoader.item?.hovered ?? false))
                 root.previewOpen = false;
         }
+    }
+
+    // Keyboard/IPC open: qs ipc call barpopup open theme
+    PopupTarget {
+        name: "theme"
+        widget: root
     }
 
     Loader {

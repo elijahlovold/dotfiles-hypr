@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.modules.theme
+import qs.modules.common
 
 // Click samples a screen pixel via hyprpicker and opens a popup breaking
 // the result down into hex/rgb/hsl/hsv, each row click-to-copy. Needs
@@ -88,6 +89,12 @@ Item {
             if (!(previewLoader.item?.hovered ?? false))
                 root.previewOpen = false;
         }
+    }
+
+    // Keyboard/IPC open: qs ipc call barpopup open colorpicker
+    PopupTarget {
+        name: "colorpicker"
+        widget: root
     }
 
     Loader {

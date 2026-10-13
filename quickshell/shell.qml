@@ -10,6 +10,7 @@ import qs.modules.reticle
 import qs.modules.draw
 import qs.modules.notifications
 import qs.modules.clipboard
+import qs.modules.bolt
 
 ShellRoot {
     Connections {
@@ -22,7 +23,8 @@ ShellRoot {
 
         function onReloadFailed(errorString) {
             Quickshell.inhibitReloadPopup();
-            Quickshell.execDetached(["notify-send", "-u", "critical", "-a", "Quickshell", "Quickshell", "Reload failed: " + errorString]);
+            // Category tags it for NotificationCard's click-to-copy.
+            Quickshell.execDetached(["notify-send", "-u", "critical", "-c", "quickshell.error", "-a", "Quickshell", "Quickshell", "Reload failed: " + errorString]);
         }
     }
 
@@ -36,4 +38,5 @@ ShellRoot {
     Draw {}
     Notifications {}
     Clipboard {}
+    Bolt {}
 }

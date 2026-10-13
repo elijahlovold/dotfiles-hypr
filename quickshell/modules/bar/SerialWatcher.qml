@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.modules.theme
+import qs.modules.common
 
 // Polls for connected USB-serial boards (ttyUSB*/ttyACM*, i.e. anything
 // that showed up because a dev board/programmer got plugged in). Same
@@ -83,6 +84,12 @@ Item {
             if (!(previewLoader.item?.hovered ?? false))
                 root.previewOpen = false;
         }
+    }
+
+    // Keyboard/IPC open: qs ipc call barpopup open serial
+    PopupTarget {
+        name: "serial"
+        widget: root
     }
 
     Loader {

@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import qs.modules.theme
+import qs.modules.common
 
 Item {
     id: root
@@ -94,6 +95,12 @@ Item {
             if (!(previewLoader.item?.hovered ?? false))
                 root.previewOpen = false;
         }
+    }
+
+    // Keyboard/IPC open: qs ipc call barpopup open calendar
+    PopupTarget {
+        name: "calendar"
+        widget: root
     }
 
     Loader {

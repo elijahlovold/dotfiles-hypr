@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import Quickshell
 import Quickshell.Widgets
 import Quickshell.Services.Notifications
 import qs.modules.theme
@@ -16,6 +17,12 @@ ClippingRectangle {
 
     readonly property var visibleActions: root.notification.actions.filter(a => a.identifier !== "default")
     readonly property var defaultAction: root.notification.actions.find(a => a.identifier === "default") ?? null
+
+    // Notifications sent with category "quickshell.error" (shell.qml's
+    // reload-failure notice) copy their body to the clipboard on click
+    // instead of just dismissing - so the error can be pasted somewhere.
+    readonly property bool copyOnClick: root.notification.hints?.category === "quickshell.error"
+    property bool copied: false
 
     // freedesktop spec: expire_timeout < 0 means "server default", 0 means
     // "never expire" (sender-requested, respected literally), >0 is ms.
@@ -58,10 +65,23 @@ ClippingRectangle {
                 expireTimer.restart();
         }
         onClicked: {
+            if (root.copyOnClick) {
+                Quickshell.execDetached(["wl-copy", root.notification.body]);
+                root.copied = true;
+                copiedDismiss.restart();
+                return;
+            }
             if (root.defaultAction)
                 root.defaultAction.invoke();
             root.notification.dismiss();
         }
+    }
+
+    // Brief "copied" confirmation before the card goes away.
+    Timer {
+        id: copiedDismiss
+        interval: 600
+        onTriggered: root.notification.dismiss()
     }
 
     Column {
@@ -90,6 +110,7 @@ ClippingRectangle {
             Text {
                 width: parent.width - (appIcon.visible ? appIcon.width + parent.spacing : 0)
                 text: root.notification.appName
+                      + (root.copyOnClick ? (root.copied ? "  ·  copied" : "  ·  click to copy") : "")
                 color: Theme.dimText
                 font.family: Theme.fontFamily
                 font.pixelSize: Theme.fontSize - 2

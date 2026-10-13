@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.modules.theme
+import qs.modules.common
 import qs.modules.notifications
 
 // Left-click toggles the inbox preview (missed/timed-out notifications,
@@ -83,6 +84,12 @@ Item {
             if (!(previewLoader.item?.hovered ?? false))
                 root.previewOpen = false;
         }
+    }
+
+    // Keyboard/IPC open: qs ipc call barpopup open notifications
+    PopupTarget {
+        name: "notifications"
+        widget: root
     }
 
     Loader {

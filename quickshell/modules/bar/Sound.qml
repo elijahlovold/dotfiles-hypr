@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Services.Pipewire
 import qs.modules.theme
+import qs.modules.common
 
 Text {
     id: root
@@ -71,6 +72,12 @@ Text {
             if (!(previewLoader.item?.hovered ?? false))
                 root.previewOpen = false;
         }
+    }
+
+    // Keyboard/IPC open: qs ipc call barpopup open sound
+    PopupTarget {
+        name: "sound"
+        widget: root
     }
 
     Loader {

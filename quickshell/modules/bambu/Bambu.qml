@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.modules.theme
+import qs.modules.common
 
 // Bar pill fed entirely by bambu_statusd.py over a unix socket (persistent
 // MQTT connection lives there, not here - see that file's header comment).
@@ -101,6 +102,12 @@ Item {
             if (!(previewLoader.item?.hovered ?? false))
                 root.previewOpen = false;
         }
+    }
+
+    // Keyboard/IPC open: qs ipc call barpopup open bambu
+    PopupTarget {
+        name: "bambu"
+        widget: root
     }
 
     Loader {

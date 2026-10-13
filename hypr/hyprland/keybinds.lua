@@ -185,6 +185,7 @@ hl.bind(mod .. " + V", hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
 -- hl.bind(mod .. " + D", hl.dsp.exec_cmd("keytree"))
 hl.bind(mod .. " + D", hl.dsp.exec_cmd("qs ipc call keytree toggle default"))
 hl.bind(mod .. " + Y", hl.dsp.exec_cmd("qs ipc call keytree toggle stator"))
+hl.bind(mod .. " + P", hl.dsp.exec_cmd("qs ipc call keytree toggle popups"))
 hl.bind(mod .. " + B", hl.dsp.exec_cmd("qs ipc call keybinds toggle"))
 
 hl.bind(mod .. " + Return", hl.dsp.exec_cmd(terminal))

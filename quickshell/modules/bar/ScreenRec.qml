@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.modules.theme
+import qs.modules.common
 
 // Left-click toggles a region recording (slurp -> wl-screenrec, see
 // scripts/hypr-screenrec), right-click opens ScreenRecPreview for the other
@@ -105,6 +106,12 @@ Item {
             if (!(previewLoader.item?.hovered ?? false))
                 root.previewOpen = false;
         }
+    }
+
+    // Keyboard/IPC open: qs ipc call barpopup open screenrec
+    PopupTarget {
+        name: "screenrec"
+        widget: root
     }
 
     Loader {

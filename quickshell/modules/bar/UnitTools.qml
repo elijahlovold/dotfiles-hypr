@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.modules.theme
+import qs.modules.common
 
 // Click opens a popup with a live unit converter and a timestamp reader -
 // both pure QML/JS, no process/service involved.
@@ -56,6 +57,12 @@ Item {
             if (!(previewLoader.item?.hovered ?? false))
                 root.previewOpen = false;
         }
+    }
+
+    // Keyboard/IPC open: qs ipc call barpopup open unittools
+    PopupTarget {
+        name: "unittools"
+        widget: root
     }
 
     Loader {

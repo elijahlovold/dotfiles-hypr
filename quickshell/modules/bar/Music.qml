@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Services.Mpris
 import qs.modules.theme
+import qs.modules.common
 
 Item {
     id: root
@@ -142,6 +143,12 @@ Item {
             if (!(previewLoader.item?.hovered ?? false))
                 root.previewOpen = false;
         }
+    }
+
+    // Keyboard/IPC open: qs ipc call barpopup open music
+    PopupTarget {
+        name: "music"
+        widget: root
     }
 
     Loader {
