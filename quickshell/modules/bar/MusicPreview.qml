@@ -49,6 +49,71 @@ PillPopup {
     readonly property string speedIcon: String.fromCharCode(0xf0e4) // fa-tachometer
     readonly property var rateSteps: [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
 
+    // Keyboard: h/l seek -/+5s, j/k volume -/+5%, n/p next/prev track,
+    // Space play/pause. Volume goes to the player itself when it supports
+    // MPRIS volume, else to the default output device.
+    property string flash: ""
+    Timer {
+        id: flashTimer
+        interval: 1200
+        onTriggered: popup.flash = ""
+    }
+    function showFlash(text) {
+        popup.flash = text;
+        flashTimer.restart();
+    }
+
+    function nudgeVolume(delta) {
+        let v;
+        if (popup.player?.volumeSupported) {
+            v = Math.max(0, Math.min(1, popup.player.volume + delta));
+            popup.player.volume = v;
+        } else if (popup.sink?.audio) {
+            v = Math.max(0, Math.min(1, popup.sink.audio.volume + delta));
+            popup.sink.audio.volume = v;
+        } else {
+            return;
+        }
+        popup.showFlash("vol " + Math.round(v * 100) + "%");
+    }
+
+    function seek(seconds) {
+        if (!(popup.player?.canSeek ?? false))
+            return;
+        popup.player.position = Math.max(0, Math.min(popup.player.length, popup.player.position + seconds));
+    }
+
+    onVimAction: (name, count) => {
+        if (!popup.player)
+            return;
+        switch (name) {
+        case "left":
+            popup.seek(-5 * count);
+            break;
+        case "right":
+            popup.seek(5 * count);
+            break;
+        case "down":
+            popup.nudgeVolume(-0.05 * count);
+            break;
+        case "up":
+            popup.nudgeVolume(0.05 * count);
+            break;
+        case "next":
+            if (popup.player.canGoNext)
+                popup.player.next();
+            break;
+        case "prev":
+            if (popup.player.canGoPrevious)
+                popup.player.previous();
+            break;
+        case "space":
+            if (popup.player.canTogglePlaying)
+                popup.player.togglePlaying();
+            break;
+        }
+    }
+
     function cycleRate() {
         if (!popup.player)
             return;
@@ -197,6 +262,13 @@ PillPopup {
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: popup.cycleRate()
                             }
+                        }
+                        Text {
+                            visible: popup.flash.length > 0
+                            text: popup.flash
+                            color: Theme.accent
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSize - 2
                         }
                     }
                 }

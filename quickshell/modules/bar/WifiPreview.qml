@@ -54,6 +54,50 @@ PillPopup {
             popup.networks = nets;
     }
 
+    // Keyboard: j/k move through networks, gg/G top/bottom, Enter = click
+    // the row, h/l switch between adapters.
+    property int cursor: 0
+
+    function moveCursor(index) {
+        popup.cursor = Math.max(0, Math.min(popup.networks.length - 1, index));
+        list.positionViewAtIndex(popup.cursor, ListView.Contain);
+    }
+
+    function cycleDevice(step) {
+        if (popup.devices.length < 2)
+            return;
+        const i = popup.devices.indexOf(popup.current);
+        popup.selected = popup.devices[(i + step + popup.devices.length) % popup.devices.length].name;
+    }
+
+    onVimAction: (name, count) => {
+        switch (name) {
+        case "down":
+            popup.moveCursor(popup.cursor + count);
+            break;
+        case "up":
+            popup.moveCursor(popup.cursor - count);
+            break;
+        case "top":
+            popup.moveCursor(0);
+            break;
+        case "bottom":
+            popup.moveCursor(popup.networks.length - 1);
+            break;
+        case "left":
+            popup.cycleDevice(-count);
+            break;
+        case "right":
+            popup.cycleDevice(count);
+            break;
+        case "select":
+            if (popup.networks[popup.cursor])
+                popup.activate(popup.networks[popup.cursor]);
+            break;
+        }
+    }
+    onNetworksChanged: popup.cursor = Math.min(popup.cursor, Math.max(0, popup.networks.length - 1))
+
     function activate(net) {
         if (net.connected || net.stateChanging)
             return;
@@ -263,12 +307,16 @@ PillPopup {
                 delegate: Rectangle {
                     id: netRow
                     required property WifiNetwork modelData
+                    required property int index
+                    readonly property bool isCursor: popup.keyboardActive && popup.cursor === netRow.index
                     readonly property bool asking: popup.passwordFor === netRow.modelData.name
 
                     width: list.width
                     height: netRow.asking ? 56 : 26
                     radius: 4
-                    color: netMa.containsMouse || netRow.asking ? Theme.hoverBg : "transparent"
+                    color: netMa.containsMouse || netRow.asking || netRow.isCursor ? Theme.hoverBg : "transparent"
+                    border.width: netRow.isCursor ? 1 : 0
+                    border.color: Theme.accent
 
                     MouseArea {
                         id: netMa
@@ -392,7 +440,12 @@ PillPopup {
                     onAskingChanged: {
                         if (netRow.asking) {
                             passwordInput.text = "";
+                            popup.activateKeyboard();
                             passwordInput.forceActiveFocus();
+                        } else if (passwordInput.activeFocus) {
+                            // Hand the keys back to the list's vim motions.
+                            passwordInput.focus = false;
+                            popup.activateKeyboard();
                         }
                     }
                     Component.onCompleted: {

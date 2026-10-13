@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
 import Quickshell
+import Quickshell.Hyprland
 import qs.modules.theme
 
 // Popup that grows out of the bottom of its Pill as one continuous shape -
@@ -29,6 +30,14 @@ import qs.modules.theme
 //       cardHeight: card.height
 //       Item { id: card; width: 300; height: layout.implicitHeight + 32; ... }
 //   }
+//
+// Keyboard: the popup takes keyboard focus (HyprlandFocusGrab) when it is
+// opened from the keyboard (BarPopups / Super+P) or clicked anywhere
+// inside. While focused it stays open regardless of hover; Escape, or a
+// click outside it, closes it. Keys go through VimKeys and arrive as
+//   onVimAction: (name, count) => { ... }   // "down", "top", "select", ...
+// TextInputs that want to keep some keys for navigation can forward them
+// with popup.handleKey(event).
 PopupWindow {
     id: popup
 
@@ -37,7 +46,57 @@ PopupWindow {
     property real cardHeight: 0
     default property alias content: body.data
 
-    readonly property alias hovered: hoverHandler.hovered
+    // "Keep me open" for the owning widget's hover-close timer - also true
+    // while the popup holds keyboard focus.
+    readonly property bool hovered: hoverHandler.hovered || popup.keyboardActive
+
+    property bool keyboardActive: false
+    signal vimAction(string name, int count)
+    signal keyboardActivated
+
+    function close() {
+        popup.keyboardActive = false;
+        if (popup.anchorItem && popup.anchorItem.previewOpen !== undefined)
+            popup.anchorItem.previewOpen = false;
+    }
+
+    function activateKeyboard() {
+        if (!popup.keyboardActive) {
+            popup.keyboardActive = true;
+            popup.keyboardActivated();
+        }
+        // A FocusScope keeps its own focused child (e.g. a clicked
+        // TextInput), so this only lands on the scope itself when nothing
+        // inside has asked for focus yet.
+        if (!frame.activeFocus)
+            frame.forceActiveFocus();
+    }
+
+    function handleKey(event) {
+        event.accepted = vim.feed(event);
+    }
+
+    VimKeys {
+        id: vim
+        onAction: (name, count) => {
+            if (name === "escape")
+                popup.close();
+            else
+                popup.vimAction(name, count);
+        }
+    }
+
+    // Wayland only hands a popup surface the keyboard through a grab;
+    // Hyprland's focus grab can be taken after mapping (unlike an xdg_popup
+    // grab) and is cleared by a click anywhere outside the listed windows.
+    HyprlandFocusGrab {
+        windows: [popup]
+        active: popup.keyboardActive && popup.visible
+        onCleared: {
+            if (popup.keyboardActive)
+                popup.close();
+        }
+    }
 
     // The enclosing Pill (see bar/Pill.qml's isPill) - the "tab" the card hangs
     // from. Falls back to the widget itself outside a pill.
@@ -149,6 +208,7 @@ PopupWindow {
     Component.onCompleted: {
         if (popup.pill?.isPill)
             popup.pill.openPopups++;
+        popup.takeSummon();
     }
     Component.onDestruction: {
         if (popup.pill?.isPill) {
@@ -157,23 +217,16 @@ PopupWindow {
         }
     }
 
-    // Opened from the keyboard (BarPopups / Super+P): there's no hover-out
-    // to close it, so close after a few seconds unless the cursor arrives -
-    // once it does, the widget's normal hover-out close takes over.
+    // Opened from the keyboard (BarPopups / Super+P) -> take focus straight
+    // away; the flag is consumed so a later hover-open doesn't grab focus.
     readonly property bool summoned: popup.pill?.summoned ?? false
-    onHoveredChanged: {
-        if (popup.hovered && popup.summoned)
-            popup.pill.summoned = false;
+    function takeSummon() {
+        if (!popup.summoned)
+            return;
+        popup.pill.summoned = false;
+        popup.activateKeyboard();
     }
-    Timer {
-        running: popup.summoned && !popup.hovered
-        interval: 4000
-        onTriggered: {
-            popup.pill.summoned = false;
-            if (popup.anchorItem && popup.anchorItem.previewOpen !== undefined)
-                popup.anchorItem.previewOpen = false;
-        }
-    }
+    onSummonedChanged: popup.takeSummon()
 
     visible: true
     // Popups that map late (StatorPreview waits for its content) still
@@ -186,10 +239,14 @@ PopupWindow {
     implicitHeight: popup.frameHeight
     color: "transparent"
 
-    Item {
+    FocusScope {
         id: frame
         width: popup.frameWidth
         height: popup.frameHeight
+
+        // Keys bubble here from whatever inside has focus (or arrive
+        // directly when nothing more specific does).
+        Keys.onPressed: event => popup.handleKey(event)
 
         // 0 -> 1 on open: the card drops down out of the pill.
         property real reveal: 0
@@ -241,6 +298,19 @@ PopupWindow {
                 id: body
                 width: popup.cardWidth
                 height: popup.cardHeight
+            }
+        }
+
+        // Click anywhere inside -> take keyboard focus. A passive grab on top
+        // of everything, so the clicked control underneath still gets it.
+        Item {
+            anchors.fill: parent
+            TapHandler {
+                gesturePolicy: TapHandler.DragThreshold
+                onPressedChanged: {
+                    if (pressed)
+                        popup.activateKeyboard();
+                }
             }
         }
     }

@@ -22,16 +22,71 @@ PillPopup {
         ScreenRecState.run(args);
     }
 
+    readonly property var modes: ScreenRecState.recording ? [
+        { icon: String.fromCharCode(0xf04d), label: "Stop", args: ["stop"] } // fa-stop
+    ] : [
+        { icon: String.fromCharCode(0xf125), label: "Region", args: ["start", "region"] }, // fa-crop
+        { icon: String.fromCharCode(0xf108), label: "Focused monitor", args: ["start", "output"] }, // fa-desktop
+        { icon: String.fromCharCode(0xf130), label: "Region + audio", args: ["start", "region", "audio"] } // fa-microphone
+    ]
+
+    // Keyboard selection runs across the modes and then the recent files:
+    // j/k move, gg/G top/bottom, r jumps to the first recent file, Enter
+    // triggers the row (same as clicking it).
+    property int selected: 0
+    readonly property int rowCount: popup.modes.length + ScreenRecState.recent.length
+
+    function trigger(index) {
+        if (index < popup.modes.length) {
+            popup.act(popup.modes[index].args);
+        } else {
+            const file = ScreenRecState.recent[index - popup.modes.length];
+            if (!file)
+                return;
+            popup.actionTaken();
+            Quickshell.execDetached(["xdg-open", file]);
+        }
+    }
+
+    onVimAction: (name, count) => {
+        const last = popup.rowCount - 1;
+        switch (name) {
+        case "down":
+            popup.selected = Math.min(last, popup.selected + count);
+            break;
+        case "up":
+            popup.selected = Math.max(0, popup.selected - count);
+            break;
+        case "top":
+            popup.selected = 0;
+            break;
+        case "bottom":
+            popup.selected = last;
+            break;
+        case "key:r":
+            if (ScreenRecState.recent.length > 0)
+                popup.selected = popup.modes.length;
+            break;
+        case "select":
+            popup.trigger(popup.selected);
+            break;
+        }
+    }
+    onRowCountChanged: popup.selected = Math.min(popup.selected, Math.max(0, popup.rowCount - 1))
+
     component ActionRow: Rectangle {
         id: actionRow
         required property string icon
         required property string label
+        property bool selected: false
         signal triggered
 
         width: parent?.width ?? 0
         height: 26
         radius: 4
-        color: actionMa.containsMouse ? Theme.hoverBg : "transparent"
+        color: actionMa.containsMouse || actionRow.selected ? Theme.hoverBg : "transparent"
+        border.width: actionRow.selected ? 1 : 0
+        border.color: Theme.accent
 
         Row {
             anchors.left: parent.left
@@ -84,29 +139,16 @@ PillPopup {
                 bottomPadding: 4
             }
 
-            ActionRow {
-                visible: ScreenRecState.recording
-                icon: String.fromCharCode(0xf04d) // fa-stop
-                label: "Stop"
-                onTriggered: popup.act(["stop"])
-            }
-            ActionRow {
-                visible: !ScreenRecState.recording
-                icon: String.fromCharCode(0xf125) // fa-crop
-                label: "Region"
-                onTriggered: popup.act(["start", "region"])
-            }
-            ActionRow {
-                visible: !ScreenRecState.recording
-                icon: String.fromCharCode(0xf108) // fa-desktop
-                label: "Focused monitor"
-                onTriggered: popup.act(["start", "output"])
-            }
-            ActionRow {
-                visible: !ScreenRecState.recording
-                icon: String.fromCharCode(0xf130) // fa-microphone
-                label: "Region + audio"
-                onTriggered: popup.act(["start", "region", "audio"])
+            Repeater {
+                model: popup.modes
+                delegate: ActionRow {
+                    required property var modelData
+                    required property int index
+                    icon: modelData.icon
+                    label: modelData.label
+                    selected: popup.keyboardActive && popup.selected === index
+                    onTriggered: popup.trigger(index)
+                }
             }
 
             Text {
@@ -123,12 +165,11 @@ PillPopup {
                 model: ScreenRecState.recent
                 delegate: ActionRow {
                     required property string modelData
+                    required property int index
                     icon: String.fromCharCode(0xf008) // fa-film
                     label: modelData.split("/").pop()
-                    onTriggered: {
-                        popup.actionTaken();
-                        Quickshell.execDetached(["xdg-open", modelData]);
-                    }
+                    selected: popup.keyboardActive && popup.selected === popup.modes.length + index
+                    onTriggered: popup.trigger(popup.modes.length + index)
                 }
             }
         }

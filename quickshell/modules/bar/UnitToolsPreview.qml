@@ -79,10 +79,27 @@ PillPopup {
         onTriggered: popup.nowTick = Date.now()
     }
 
-    // Bar.qml's WlrLayershell.keyboardFocus: OnDemand only ever hands the
-    // window real keyboard input once something inside it actually asks
-    // for active focus - nothing does that on its own just by being shown.
-    Component.onCompleted: fieldA.forceActiveFocus()
+    // Keyboard: j/k move between the three fields (wrapping); everything
+    // else types into the field. Escape isn't taken here, so it bubbles up
+    // to PillPopup and closes. Once the popup takes keyboard focus (Super+P
+    // or a click), the first field gets it unless a click already picked one
+    // - deferred so that click's own focus change lands first.
+    readonly property var fields: [fieldA, fieldB, tsField]
+
+    function fieldKey(event, index) {
+        if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
+            return;
+        const step = event.text === "j" ? 1 : event.text === "k" ? -1 : 0;
+        if (step === 0)
+            return;
+        popup.fields[(index + step + popup.fields.length) % popup.fields.length].forceActiveFocus();
+        event.accepted = true;
+    }
+
+    onKeyboardActivated: Qt.callLater(() => {
+        if (!popup.fields.some(f => f.focus))
+            fieldA.forceActiveFocus();
+    })
 
     Item {
         id: card
@@ -140,6 +157,12 @@ PillPopup {
 
                         TextInput {
                             id: fieldA
+                            // Numbers and a decimal point only (plus a leading minus, so
+                            // sub-zero temperatures still work).
+                            validator: RegularExpressionValidator {
+                                regularExpression: /^-?\d*\.?\d*$/
+                            }
+                            Keys.onPressed: event => popup.fieldKey(event, 0)
                             anchors.fill: parent
                             anchors.margins: 6
                             verticalAlignment: TextInput.AlignVCenter
@@ -174,6 +197,12 @@ PillPopup {
 
                         TextInput {
                             id: fieldB
+                            // Numbers and a decimal point only (plus a leading minus, so
+                            // sub-zero temperatures still work).
+                            validator: RegularExpressionValidator {
+                                regularExpression: /^-?\d*\.?\d*$/
+                            }
+                            Keys.onPressed: event => popup.fieldKey(event, 1)
                             anchors.fill: parent
                             anchors.margins: 6
                             verticalAlignment: TextInput.AlignVCenter
@@ -224,6 +253,7 @@ PillPopup {
 
                     TextInput {
                         id: tsField
+                        Keys.onPressed: event => popup.fieldKey(event, 2)
                         anchors.fill: parent
                         anchors.margins: 6
                         verticalAlignment: TextInput.AlignVCenter

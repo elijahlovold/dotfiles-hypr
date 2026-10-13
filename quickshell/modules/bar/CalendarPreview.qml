@@ -27,6 +27,71 @@ PillPopup {
 
     ListModel { id: dayModel }
 
+    // Keyboard cursor (vim motions): h/l a day, j/k a week, n/p a month,
+    // gg/G first/last day of the month, 0 back to today, Enter opens that
+    // day's note (like clicking it) and closes the popup. Starts on today;
+    // the shown month follows the cursor.
+    property var cursor: new Date(popup.todayDate.getFullYear(), popup.todayDate.getMonth(), popup.todayDate.getDate())
+    readonly property string cursorKey: popup.dateKey(popup.cursor.getFullYear(), popup.cursor.getMonth(), popup.cursor.getDate())
+
+    function dateKey(year, month, day) {
+        return year + "-" + month + "-" + day;
+    }
+
+    function moveCursor(days) {
+        const c = popup.cursor;
+        popup.setCursor(new Date(c.getFullYear(), c.getMonth(), c.getDate() + days));
+    }
+
+    function moveMonth(months) {
+        const c = popup.cursor;
+        // Clamp to the target month's length (Jan 31 + 1 month -> Feb 28).
+        const last = new Date(c.getFullYear(), c.getMonth() + months + 1, 0).getDate();
+        popup.setCursor(new Date(c.getFullYear(), c.getMonth() + months, Math.min(c.getDate(), last)));
+    }
+
+    function setCursor(date) {
+        popup.cursor = date;
+        popup.monthOffset = (date.getFullYear() - popup.todayDate.getFullYear()) * 12 + date.getMonth() - popup.todayDate.getMonth();
+    }
+
+    onVimAction: (name, count) => {
+        const c = popup.cursor;
+        switch (name) {
+        case "left":
+            popup.moveCursor(-count);
+            break;
+        case "right":
+            popup.moveCursor(count);
+            break;
+        case "up":
+            popup.moveCursor(-7 * count);
+            break;
+        case "down":
+            popup.moveCursor(7 * count);
+            break;
+        case "next":
+            popup.moveMonth(count);
+            break;
+        case "prev":
+            popup.moveMonth(-count);
+            break;
+        case "top":
+            popup.setCursor(new Date(c.getFullYear(), c.getMonth(), 1));
+            break;
+        case "bottom":
+            popup.setCursor(new Date(c.getFullYear(), c.getMonth() + 1, 0));
+            break;
+        case "zero":
+            popup.setCursor(new Date(popup.todayDate.getFullYear(), popup.todayDate.getMonth(), popup.todayDate.getDate()));
+            break;
+        case "select":
+            popup.openDailyNote(c.getFullYear(), c.getMonth(), c.getDate());
+            popup.close();
+            break;
+        }
+    }
+
     function rebuildGrid() {
         dayModel.clear();
         const year = popup.displayDate.getFullYear();
@@ -199,6 +264,8 @@ PillPopup {
                         required property int year
                         required property bool inMonth
                         required property bool isToday
+                        readonly property bool isCursor: popup.keyboardActive
+                            && popup.cursorKey === popup.dateKey(dayCell.year, dayCell.month, dayCell.day)
 
                         width: layout.width / 7
                         height: width
@@ -206,6 +273,8 @@ PillPopup {
                         color: dayCell.isToday ? Theme.accent
                              : dayMa.containsMouse ? Theme.pillBorder
                              : "transparent"
+                        border.width: dayCell.isCursor ? 2 : 0
+                        border.color: dayCell.isToday ? Theme.text : Theme.accent
 
                         Text {
                             anchors.centerIn: parent
