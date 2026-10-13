@@ -1,0 +1,124 @@
+#!/bin/sh
+# Removable drives (udisksctl) and MTP phones (android-file-transfer) for
+# the quickshell Drives pill.
+#
+#   hypr-usb list                 JSON: {drives: [...], phones: [...], phoneMount}
+#   hypr-usb open <partition>     mount if needed, open a terminal there
+#   hypr-usb unmount <partition>
+#   hypr-usb eject <disk>         unmount every partition, power the disk off
+#   hypr-usb open-phone           aft-mtp-mount, open a terminal there
+#   hypr-usb unmount-phone
+#   hypr-usb gui-phone            android-file-transfer (needs the device free)
+#
+# aft-mtp-mount only ever grabs the first MTP device, so there's a single
+# phone mountpoint rather than one per device.
+
+set -u
+
+terminal=${TERMINAL:-alacritty}
+phone_dir="${XDG_RUNTIME_DIR:-/tmp}/hypr-usb/phone"
+
+die() {
+    printf '%s\n' "$*" >&2
+    exit 1
+}
+
+open_terminal() {
+    setsid -f "$terminal" --working-directory "$1" >/dev/null 2>&1
+}
+
+mountpoint_of() {
+    lsblk -no MOUNTPOINT "$1" | head -n 1
+}
+
+list_drives() {
+    # Partitions (or bare filesystems) on USB/hotplug disks - skips the
+    # internal NVMe/SATA disks and anything without a filesystem.
+    { lsblk -J -o NAME,PATH,LABEL,SIZE,FSTYPE,MOUNTPOINT,MODEL,TRAN,HOTPLUG,TYPE 2>/dev/null ||
+        echo '{"blockdevices": []}'; } | jq -c '
+        [.blockdevices[]
+         | select(.type == "disk" and (.tran == "usb" or .hotplug == true or .hotplug == "1"))
+         | . as $disk
+         | ($disk.children // [$disk])[]
+         | select(.fstype != null)
+         | {path, label: (.label // ""), size, fstype, mountpoint: (.mountpoint // ""),
+            disk: $disk.path, model: (($disk.model // "") | gsub("^\\s+|\\s+$"; ""))}]'
+}
+
+list_phones() {
+    # Android exposes MTP as a vendor-class interface literally named "MTP";
+    # PTP-only (camera mode) phones show up as still-image class 06.
+    for iface in /sys/bus/usb/devices/*:*; do
+        [ -d "$iface" ] || continue
+        name=$(cat "$iface/interface" 2>/dev/null)
+        class=$(cat "$iface/bInterfaceClass" 2>/dev/null)
+        [ "$name" = MTP ] || [ "$class" = 06 ] || continue
+        dev=${iface%:*}
+        printf '%s\t%s\t%s\n' "$(basename "$dev")" \
+            "$(cat "$dev/manufacturer" 2>/dev/null)" "$(cat "$dev/product" 2>/dev/null)"
+    done | sort -u | jq -R -s -c '
+        [split("\n")[] | select(length > 0) | split("\t")
+         | {id: .[0], name: ([.[1], .[2]] | map(select(length > 0)) | join(" "))}]'
+}
+
+phone_mounted() {
+    mountpoint -q "$phone_dir" 2>/dev/null
+}
+
+unmount_phone() {
+    phone_mounted || return 0
+    fusermount3 -u "$phone_dir" 2>/dev/null || fusermount -u "$phone_dir"
+}
+
+case ${1:-} in
+list)
+    mount=""
+    phone_mounted && mount=$phone_dir
+    jq -n -c --argjson drives "$(list_drives)" --argjson phones "$(list_phones)" \
+        --arg phoneMount "$mount" '{drives: $drives, phones: $phones, phoneMount: $phoneMount}'
+    ;;
+open)
+    [ -n "${2:-}" ] || die "usage: hypr-usb open <partition>"
+    mp=$(mountpoint_of "$2")
+    if [ -z "$mp" ]; then
+        udisksctl mount --no-user-interaction -b "$2" >/dev/null || exit 1
+        mp=$(mountpoint_of "$2")
+    fi
+    [ -n "$mp" ] || die "$2 has no mountpoint"
+    open_terminal "$mp"
+    ;;
+unmount)
+    [ -n "${2:-}" ] || die "usage: hypr-usb unmount <partition>"
+    udisksctl unmount --no-user-interaction -b "$2" >/dev/null
+    ;;
+eject)
+    [ -n "${2:-}" ] || die "usage: hypr-usb eject <disk>"
+    for part in $(lsblk -nlo PATH,MOUNTPOINT "$2" | awk 'NF == 2 { print $1 }'); do
+        udisksctl unmount --no-user-interaction -b "$part" >/dev/null || exit 1
+    done
+    udisksctl power-off --no-user-interaction -b "$2"
+    ;;
+open-phone)
+    if ! phone_mounted; then
+        mkdir -p "$phone_dir"
+        setsid -f aft-mtp-mount "$phone_dir" >/dev/null 2>&1
+        i=0
+        until phone_mounted; do
+            i=$((i + 1))
+            [ $i -gt 20 ] && die "phone didn't mount - unlocked and set to File transfer?"
+            sleep 0.5
+        done
+    fi
+    open_terminal "$phone_dir"
+    ;;
+unmount-phone)
+    unmount_phone
+    ;;
+gui-phone)
+    unmount_phone
+    setsid -f android-file-transfer >/dev/null 2>&1
+    ;;
+*)
+    die "usage: hypr-usb list|open|unmount|eject|open-phone|unmount-phone|gui-phone"
+    ;;
+esac

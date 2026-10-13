@@ -10,7 +10,7 @@ hl.bind(mod .. " + Space", hl.dsp.window.cycle_next())
 hl.bind(mod .. " + SHIFT + Space", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen({ action = "toggle" }))
 
-hl.bind(mod .. " + P", hl.dsp.window.pseudo()) -- dwindle - no i3 analog, kept as a Hyprland extra
+-- hl.bind(mod .. " + P", hl.dsp.window.pseudo()) -- dwindle - no i3 analog, kept as a Hyprland extra
 -- hl.bind(mod .. " + E", hl.dsp.layout("togglesplit")) -- i3: mod+e "layout toggle split"
 
 -- i3: mod+s layout stacking / mod+w layout tabbed -> Hyprland's window groups are the
@@ -166,6 +166,7 @@ hl.bind("Print", hl.dsp.exec_cmd(
 ))
 
 hl.bind(mod .. " + ALT + Print", hl.dsp.exec_cmd("hypr-ocr"))
+hl.bind(mod .. " + CTRL + Print", hl.dsp.exec_cmd("hypr-screenrec toggle"))
 hl.bind(mod .. " + Print", hl.dsp.exec_cmd(
     'file="' .. screenshots .. '/$(date +%Y-%m-%d_%H-%M-%S).png"; ' ..
     'output="$(hyprctl -j monitors | jq -r \'.[] | select(.focused).name\')"; ' ..

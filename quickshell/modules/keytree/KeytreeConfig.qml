@@ -55,10 +55,14 @@ Singleton {
           label: "Design/",
           icon: "   ",
           children: {
+            "a": { icon: "  ", label: "Android", cmd: "android-studio" },
+            "t": { icon: "Q  ", label: "Qt Designer", cmd: "designer6" },
             "b": { icon: "  ", label: "Blender", cmd: "blender" },
             "g": { icon: "  ", label: "Godot",   cmd: "godot" },
             "i": { icon: "  ", label: "Gimp",    cmd: "gimp" },
             "l": { icon: "󰐋  ", label: "LTSpice", cmd: "ltspice" },
+            "o": { icon: "  ", label: "OBS",     cmd: "obs" },
+            "s": { icon: "󱑽  ", label: "Logic 2", cmd: "saleae-logic2" },
             "u": { icon: "󰹛  ", label: "Bambu",   cmd: "bambu-studio" },
           }
         },
@@ -144,8 +148,10 @@ Singleton {
           label: "Services/",
           icon: "  ",
           children: {
-            "i": { label: "Immich",    cmd: "firefox http://edel:2283/",            icon: "  " },
-            "j": { label: "Jellyfin",  cmd: "firefox http://edel:8096/",            icon: "󰿎  " },
+            "o": { label: "O-Scope",   cmd: "firefox http://10.11.13.220",          icon: "󱑽  " },
+            "b": { label: "Backrest",  cmd: "firefox http://localhost:9898/",       icon: "󰁯  " },
+            "i": { label: "Immich",    cmd: "firefox https://immich.elovold.xyz",   icon: "  " },
+            "j": { label: "Jellyfin",  cmd: "firefox https://jellyfin.elovold.xyz", icon: "󰿎  " },
             "p": { label: "Portainer", cmd: "firefox https://edel:9443/",           icon: "󰡨  " },
             "s": { label: "Stirling",  cmd: "firefox http://edel:8080/",            icon: "  " },
             "t": { label: "TailScale", cmd: "firefox https://login.tailscale.com/", icon: "󰖂  " },

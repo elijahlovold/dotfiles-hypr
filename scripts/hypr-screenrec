@@ -1,0 +1,101 @@
+#!/bin/sh
+# Screen recording via slurp + wl-screenrec. The recorder runs inside a
+# detached watcher subshell that owns it as a child, so state cleanup and
+# the quickshell refresh happen however it exits (stop, crash, output
+# unplugged) - quickshell never has to poll.
+#
+#   hypr-screenrec toggle                 start (region) or stop
+#   hypr-screenrec start [region|output] [audio]
+#   hypr-screenrec stop
+#   hypr-screenrec status                 "idle" | "recording<TAB>file<TAB>epoch"
+#   hypr-screenrec recent [n]             newest recordings, one path per line
+
+set -u
+
+runtime=${XDG_RUNTIME_DIR:-/tmp}
+state="$runtime/hypr-screenrec.state"
+log="$runtime/hypr-screenrec.log"
+outdir=${HYPR_SCREENREC_DIR:-"$(xdg-user-dir VIDEOS 2>/dev/null || echo "$HOME/vids")/recordings"}
+
+refresh_qs() {
+    qs ipc call screenrec refresh >/dev/null 2>&1 || true
+}
+
+is_running() {
+    [ -f "$state" ] || return 1
+    pid=$(sed -n 1p "$state")
+    [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+status() {
+    if is_running; then
+        printf 'recording\t%s\t%s\n' "$(sed -n 2p "$state")" "$(sed -n 3p "$state")"
+    else
+        echo idle
+    fi
+}
+
+start() {
+    is_running && return 0
+    mode=${1:-region}
+    audio=${2:-}
+
+    case $mode in
+    region)
+        geometry=$(slurp -d) || return 0
+        [ -n "$geometry" ] || return 0
+        set -- -g "$geometry"
+        ;;
+    output)
+        output=$(hyprctl -j monitors | jq -r '.[] | select(.focused).name')
+        set -- -o "$output"
+        ;;
+    *)
+        echo "unknown mode: $mode" >&2
+        return 1
+        ;;
+    esac
+    [ "$audio" = audio ] && set -- "$@" --audio
+
+    mkdir -p "$outdir"
+    file="$outdir/$(date +%Y-%m-%d_%H-%M-%S).mp4"
+
+    (
+        wl-screenrec "$@" -f "$file" &
+        rec=$!
+        printf '%s\n%s\n%s\n' "$rec" "$file" "$(date +%s)" >"$state"
+        refresh_qs
+
+        wait "$rec"
+        rm -f "$state"
+        refresh_qs
+
+        if [ -s "$file" ]; then
+            printf 'file://%s\n' "$file" | wl-copy -t text/uri-list
+            action=$(notify-send -a Quickshell -t 6000 -A open=Open \
+                "Recording saved" "$(basename "$file") (copied)")
+            [ "$action" = open ] && xdg-open "$file"
+        else
+            rm -f "$file"
+            notify-send -a Quickshell -u critical "Recording failed" "$(tail -n 3 "$log")"
+        fi
+    ) >"$log" 2>&1 &
+}
+
+stop() {
+    is_running || return 0
+    # SIGINT lets wl-screenrec finalize the mp4 container.
+    kill -INT "$pid"
+}
+
+case ${1:-toggle} in
+toggle) if is_running; then stop; else start region; fi ;;
+start) shift; start "$@" ;;
+stop) stop ;;
+status) status ;;
+recent) ls -1t "$outdir"/*.mp4 2>/dev/null | head -n "${2:-5}" ;;
+*)
+    echo "usage: hypr-screenrec [toggle|start [region|output] [audio]|stop|status|recent [n]]" >&2
+    exit 1
+    ;;
+esac

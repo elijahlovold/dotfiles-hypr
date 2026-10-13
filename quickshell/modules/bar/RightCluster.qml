@@ -58,6 +58,11 @@ Row {
         Stator {}
     }
 
+    // Removable drives / MTP phones - same collapse-when-empty convention.
+    Pill {
+        Drives {}
+    }
+
     // System - re-enabling Hueshift/DiskIo below needs a Separator {} added
     // next to them too, same as the three active widgets here.
     Pill {
@@ -116,6 +121,8 @@ Row {
             ColorPicker {}
             Separator {}
             UnitTools {}
+            Separator {}
+            ScreenRec {}
         }
     }
 
