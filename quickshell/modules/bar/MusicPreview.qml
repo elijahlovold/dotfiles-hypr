@@ -211,20 +211,57 @@ PillPopup {
 
                 readonly property real fraction: (popup.player?.length ?? 0) > 0
                     ? (popup.player.position / popup.player.length) : 0
+                // While dragging, the bar follows the cursor and the actual
+                // seek happens once on release - not one MPRIS seek per pixel.
+                readonly property real shownFraction: Math.max(0, Math.min(1,
+                    seekArea.pressed ? seekArea.dragFraction : progressTrack.fraction))
 
                 Rectangle {
-                    width: parent.width * Math.max(0, Math.min(1, progressTrack.fraction))
+                    width: parent.width * progressTrack.shownFraction
                     height: parent.height
                     radius: parent.radius
                     color: Theme.accent
                 }
 
+                // Leading-edge knob, a touch bigger while hovered/dragged.
+                Rectangle {
+                    id: knob
+                    // Not readonly - a Behavior can't animate a readonly property.
+                    property real size: seekArea.pressed || seekArea.containsMouse ? 13 : 11
+                    x: progressTrack.width * progressTrack.shownFraction - knob.width / 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: knob.size
+                    height: knob.size
+                    radius: knob.size / 2
+                    color: Theme.accent
+                    border.width: 1
+                    border.color: Theme.pillBorder
+                    Behavior on size { NumberAnimation { duration: 80 } }
+                }
+
+                // Hitbox well taller than the 5px track (overlaps only the
+                // spacing around it), so it doesn't take a pixel-exact aim.
                 MouseArea {
-                    anchors.fill: parent
-                    enabled: popup.player?.canSeek ?? false
-                    onClicked: mouse => {
-                        popup.player.position = (mouse.x / width) * popup.player.length;
+                    id: seekArea
+                    property real dragFraction: 0
+
+                    function fractionAt(x) {
+                        return Math.max(0, Math.min(1, x / width));
                     }
+
+                    anchors.fill: parent
+                    anchors.topMargin: -8
+                    anchors.bottomMargin: -8
+                    enabled: popup.player?.canSeek ?? false
+                    hoverEnabled: true
+                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    preventStealing: true
+                    onPressed: mouse => seekArea.dragFraction = seekArea.fractionAt(mouse.x)
+                    onPositionChanged: mouse => {
+                        if (pressed)
+                            seekArea.dragFraction = seekArea.fractionAt(mouse.x);
+                    }
+                    onReleased: popup.player.position = seekArea.dragFraction * popup.player.length
                 }
             }
 

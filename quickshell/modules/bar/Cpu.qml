@@ -15,7 +15,7 @@ Text {
     property list<real> coreUsages: []
 
     text: full
-        ? root.icon + "  " + root.sparkline(root.coreUsages) + " " + Math.round(root.usage * 100) + "%"
+        ? root.icon + "  " + root.sparkline(root.coreUsages) + " " + (root.usage * 100).toFixed(1) + "%"
         : root.icon + "  " + Math.round(root.usage * 100) + "%"
 
     color: Theme.text
