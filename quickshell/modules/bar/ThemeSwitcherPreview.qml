@@ -6,31 +6,16 @@ import qs.modules.theme
 // Dropdown list, opened from ThemeSwitcherWidget.qml. Reads
 // ThemeManager.themes directly so adding a theme name there is the only
 // change needed for it to show up here too.
-PopupWindow {
+PillPopup {
     id: popup
 
-    required property Item anchorItem
+    cardWidth: card.width
+    cardHeight: card.height
 
-    readonly property alias hovered: cardHoverHandler.hovered
-
-    anchor {
-        item: popup.anchorItem
-        edges: Edges.Bottom
-        gravity: Edges.Bottom
-        margins.top: 0
-    }
-
-    visible: true
-    implicitWidth: card.width
-    implicitHeight: card.height
-    color: "transparent"
-
-    PopupFrame {
+    Item {
         id: card
         width: 160
         height: layout.implicitHeight + 20
-
-        HoverHandler { id: cardHoverHandler }
 
         Column {
             id: layout

@@ -9,17 +9,17 @@ import qs.modules.theme
 // All actions go through scripts/hypr-usb (udisksctl for drives,
 // aft-mtp-mount / android-file-transfer for phones), run as a Process so a
 // failure's stderr can be shown inline instead of silently vanishing.
-PopupWindow {
+PillPopup {
     id: popup
 
-    required property Item anchorItem
+    cardWidth: card.width
+    cardHeight: card.height
+
     required property var drives
     required property var phones
     required property string phoneMount
 
     signal actionFinished
-
-    readonly property alias hovered: cardHoverHandler.hovered
 
     property string status: ""
     property string lastError: ""
@@ -53,18 +53,6 @@ PopupWindow {
         }
     }
 
-    anchor {
-        item: popup.anchorItem
-        edges: Edges.Bottom
-        gravity: Edges.Bottom
-        margins.top: 0
-    }
-
-    visible: true
-    implicitWidth: card.width
-    implicitHeight: card.height
-    color: "transparent"
-
     // Small clickable glyph used for the per-row actions.
     component IconButton: Text {
         id: iconButton
@@ -93,12 +81,10 @@ PopupWindow {
         topPadding: 4
     }
 
-    PopupFrame {
+    Item {
         id: card
         width: 320
         height: layout.implicitHeight + 32
-
-        HoverHandler { id: cardHoverHandler }
 
         Column {
             id: layout

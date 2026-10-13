@@ -7,32 +7,20 @@ import qs.modules.theme
 // ScreenRec.qml. Every start/stop goes through scripts/hypr-screenrec; the
 // popup closes itself first (actionTaken) so it isn't in the slurp overlay
 // or the recording.
-PopupWindow {
+PillPopup {
     id: popup
 
-    required property Item anchorItem
+    cardWidth: card.width
+    cardHeight: card.height
+
     required property string elapsed
 
     signal actionTaken
-
-    readonly property alias hovered: cardHoverHandler.hovered
 
     function act(args) {
         popup.actionTaken();
         ScreenRecState.run(args);
     }
-
-    anchor {
-        item: popup.anchorItem
-        edges: Edges.Bottom
-        gravity: Edges.Bottom
-        margins.top: 0
-    }
-
-    visible: true
-    implicitWidth: card.width
-    implicitHeight: card.height
-    color: "transparent"
 
     component ActionRow: Rectangle {
         id: actionRow
@@ -75,12 +63,10 @@ PopupWindow {
         }
     }
 
-    PopupFrame {
+    Item {
         id: card
         width: 260
         height: layout.implicitHeight + 32
-
-        HoverHandler { id: cardHoverHandler }
 
         Column {
             id: layout

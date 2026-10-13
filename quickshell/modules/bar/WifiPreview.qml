@@ -15,12 +15,11 @@ import qs.modules.theme
 // known one failing with NoSecrets) -> inline password field ->
 // connectWithPsk(). The connected row gets a disconnect icon, known rows a
 // forget icon.
-PopupWindow {
+PillPopup {
     id: popup
 
-    required property Item anchorItem
-
-    readonly property alias hovered: cardHoverHandler.hovered
+    cardWidth: card.width
+    cardHeight: card.height
 
     readonly property var devices: Networking.devices.values.filter(d => d.type === DeviceType.Wifi)
     // Chip choice, else the Intel card (WifiPrimary.qml).
@@ -128,18 +127,6 @@ PopupWindow {
         }
     }
 
-    anchor {
-        item: popup.anchorItem
-        edges: Edges.Bottom
-        gravity: Edges.Bottom
-        margins.top: 0
-    }
-
-    visible: true
-    implicitWidth: card.width
-    implicitHeight: card.height
-    color: "transparent"
-
     component IconButton: Text {
         id: iconButton
         signal triggered
@@ -159,12 +146,10 @@ PopupWindow {
         }
     }
 
-    PopupFrame {
+    Item {
         id: card
         width: 340
         height: layout.implicitHeight + 32
-
-        HoverHandler { id: cardHoverHandler }
 
         Column {
             id: layout

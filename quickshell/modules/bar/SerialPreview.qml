@@ -6,36 +6,22 @@ import qs.modules.theme
 // Device list popup, right-click-toggled open from SerialWatcher.qml.
 // Clicking a device opens a terminal running picocom against it - swap for
 // minicom (`minicom -D <dev>`) below if that's what's installed instead.
-PopupWindow {
+PillPopup {
     id: popup
 
-    required property Item anchorItem
-    required property var devices
+    cardWidth: card.width
+    cardHeight: card.height
 
-    readonly property alias hovered: cardHoverHandler.hovered
+    required property var devices
 
     function openConsole(devicePath) {
         Quickshell.execDetached(["alacritty", "-e", "sh", "-c", 'picocom -b 115200 "$1"', "sh", devicePath]);
     }
 
-    anchor {
-        item: popup.anchorItem
-        edges: Edges.Bottom
-        gravity: Edges.Bottom
-        margins.top: 0
-    }
-
-    visible: true
-    implicitWidth: card.width
-    implicitHeight: card.height
-    color: "transparent"
-
-    PopupFrame {
+    Item {
         id: card
         width: 220
         height: layout.implicitHeight + 32
-
-        HoverHandler { id: cardHoverHandler }
 
         Column {
             id: layout

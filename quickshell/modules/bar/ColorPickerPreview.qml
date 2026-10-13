@@ -6,13 +6,13 @@ import qs.modules.theme
 // Colorspace breakdown popup, opened from ColorPicker.qml right after a
 // hyprpicker sample. Each row copies its value to the clipboard via
 // wl-copy on click, with a brief "Copied" swap instead of the value.
-PopupWindow {
+PillPopup {
     id: popup
 
-    required property Item anchorItem
-    required property string hex
+    cardWidth: card.width
+    cardHeight: card.height
 
-    readonly property alias hovered: cardHoverHandler.hovered
+    required property string hex
 
     property string copiedField: ""
 
@@ -78,24 +78,10 @@ PopupWindow {
         onTriggered: popup.copiedField = ""
     }
 
-    anchor {
-        item: popup.anchorItem
-        edges: Edges.Bottom
-        gravity: Edges.Bottom
-        margins.top: 0
-    }
-
-    visible: true
-    implicitWidth: card.width
-    implicitHeight: card.height
-    color: "transparent"
-
-    PopupFrame {
+    Item {
         id: card
         width: 220
         height: layout.implicitHeight + 32
-
-        HoverHandler { id: cardHoverHandler }
 
         Column {
             id: layout

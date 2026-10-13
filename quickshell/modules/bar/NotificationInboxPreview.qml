@@ -11,36 +11,18 @@ import qs.modules.notifications
 // per-entry actions (the underlying dbus notification/sender is long gone by
 // the time something lands here). Clearing the whole inbox is a right-click
 // on the bell itself, not done from in here.
-PopupWindow {
+PillPopup {
     id: popup
 
-    required property Item anchorItem
+    cardWidth: card.width
+    cardHeight: card.height
 
-    readonly property alias hovered: cardHoverHandler.hovered
     readonly property int maxListHeight: 360
 
-    anchor {
-        item: popup.anchorItem
-        edges: Edges.Bottom
-        gravity: Edges.Bottom
-        margins.top: 0
-    }
-
-    visible: true
-    implicitWidth: 320
-    implicitHeight: card.height
-    color: "transparent"
-
-    Rectangle {
+    Item {
         id: card
-        width: popup.implicitWidth
+        width: 320
         height: (list.count > 0 ? Math.min(list.contentHeight, popup.maxListHeight) + 24 : 60)
-        radius: 8
-        color: Theme.pillBg
-        border.color: Theme.pillBorder
-        border.width: 1
-
-        HoverHandler { id: cardHoverHandler }
 
         Text {
             visible: list.count === 0

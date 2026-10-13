@@ -8,12 +8,11 @@ import qs.modules.theme
 // Sound.qml. All native Pipewire service state (same as MusicPreview's
 // device label) - picking a row sets the preferred default node, which
 // pipewire then routes to.
-PopupWindow {
+PillPopup {
     id: popup
 
-    required property Item anchorItem
-
-    readonly property alias hovered: cardHoverHandler.hovered
+    cardWidth: card.width
+    cardHeight: card.height
 
     readonly property PwNode sink: Pipewire.defaultAudioSink
     readonly property PwNode source: Pipewire.defaultAudioSource
@@ -25,18 +24,6 @@ PopupWindow {
     PwObjectTracker {
         objects: [popup.sink, popup.source]
     }
-
-    anchor {
-        item: popup.anchorItem
-        edges: Edges.Bottom
-        gravity: Edges.Bottom
-        margins.top: 0
-    }
-
-    visible: true
-    implicitWidth: card.width
-    implicitHeight: card.height
-    color: "transparent"
 
     // One "Output"/"Input" block: header with mute toggle, volume slider for
     // the current default, then the selectable device list. Inline
@@ -189,12 +176,10 @@ PopupWindow {
         }
     }
 
-    PopupFrame {
+    Item {
         id: card
         width: 340
         height: layout.implicitHeight + 32
-
-        HoverHandler { id: cardHoverHandler }
 
         Column {
             id: layout

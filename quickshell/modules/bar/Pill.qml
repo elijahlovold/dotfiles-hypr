@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 import qs.modules.theme
 
 // Generic rounded-pill container for grouping related bar widgets. Content
@@ -14,6 +15,11 @@ import qs.modules.theme
 // implicitWidth/Layout.preferredWidth - so Pill needs to satisfy both a
 // plain Row (reads width) and a RowLayout (reads implicitWidth) depending
 // on where it's used.
+//
+// While a PillPopup hangs off this pill (openPopups > 0) the plain
+// Rectangle chrome is swapped for an open-bottomed Shape outline, drawn the
+// same way as PillPopup's (fill + half-pixel 1px stroke) so the two
+// surfaces' walls meet seamlessly - see PillPopup.qml.
 Rectangle {
     id: root
 
@@ -21,15 +27,56 @@ Rectangle {
     property int spacing: 10
     property int horizontalPadding: 10
 
+    // Marker + open-popup count, found/maintained by PillPopup.
+    readonly property bool isPill: true
+    property int openPopups: 0
+    readonly property bool expanded: root.openPopups > 0
+
     radius: 8
-    color: Theme.pillBg
-    border.width: 1
+    color: root.expanded ? "transparent" : Theme.pillBg
+    border.width: root.expanded ? 0 : 1
     border.color: Theme.pillBorder
     implicitWidth: innerRow.width > 0 ? innerRow.width + root.horizontalPadding * 2 : 0
     implicitHeight: 22
     width: implicitWidth
     height: implicitHeight
     visible: root.width > 0
+
+    Shape {
+        id: outlineShape
+        visible: root.expanded
+        anchors.fill: parent
+        preferredRendererType: Shape.CurveRenderer
+
+        readonly property real l: 0.5
+        readonly property real r: root.width - 0.5
+        readonly property real t: 0.5
+        readonly property real b: root.height
+        readonly property real rad: root.radius - 0.5
+        // Up the left wall, across the top, down the right wall - the
+        // bottom stays open where the popup continues.
+        readonly property string outline: {
+            const l = outlineShape.l, r = outlineShape.r, t = outlineShape.t, b = outlineShape.b, rad = outlineShape.rad;
+            return `M ${l} ${b} L ${l} ${t + rad} A ${rad} ${rad} 0 0 1 ${l + rad} ${t} L ${r - rad} ${t} A ${rad} ${rad} 0 0 1 ${r} ${t + rad} L ${r} ${b}`;
+        }
+
+        ShapePath {
+            strokeWidth: -1
+            fillColor: Theme.pillBg
+            PathSvg {
+                path: outlineShape.outline + " Z"
+            }
+        }
+        ShapePath {
+            strokeWidth: 1
+            strokeColor: Theme.pillBorder
+            fillColor: "transparent"
+            capStyle: ShapePath.FlatCap
+            PathSvg {
+                path: outlineShape.outline
+            }
+        }
+    }
 
     Row {
         id: innerRow

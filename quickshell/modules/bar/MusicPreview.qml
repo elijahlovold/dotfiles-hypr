@@ -12,15 +12,13 @@ import qs.modules.theme
 // (ported/adapted from ilyamiro-quickshell's MusicPopup.qml, which relied
 // on playerctl/wpctl/imagemagick polling scripts for the same data we
 // already have as live QML properties).
-PopupWindow {
+PillPopup {
     id: popup
 
-    required property MprisPlayer player
-    required property Item anchorItem
+    cardWidth: card.width
+    cardHeight: card.height
 
-    // Exposed so Music.qml can keep this open while the cursor is over the
-    // card itself, not just the pill that spawned it.
-    readonly property alias hovered: cardHoverHandler.hovered
+    required property MprisPlayer player
 
     readonly property PwNode sink: Pipewire.defaultAudioSink
     readonly property string deviceIcon: {
@@ -61,22 +59,6 @@ PopupWindow {
         popup.player.rate = steps[(idx + 1) % steps.length];
     }
 
-    // Centered under the pill, flush against its bottom edge (no gap) so
-    // the card reads as an extension of the pill rather than a separate
-    // floating tooltip - reinforced below by matching the pill's radius
-    // and colors.
-    anchor {
-        item: popup.anchorItem
-        edges: Edges.Bottom
-        gravity: Edges.Bottom
-        margins.top: 0
-    }
-
-    visible: true
-    implicitWidth: 380
-    implicitHeight: card.height
-    color: "transparent"
-
     // Keeps position/length-derived bindings (the progress bar) live -
     // Mpris doesn't push position updates on its own.
     Timer {
@@ -86,18 +68,10 @@ PopupWindow {
         onTriggered: popup.player.positionChanged()
     }
 
-    Rectangle {
+    Item {
         id: card
-        width: popup.implicitWidth
+        width: 380
         height: layout.implicitHeight + 32
-        radius: 8
-        color: Theme.pillBg
-        border.color: Theme.pillBorder
-        border.width: 1
-
-        HoverHandler {
-            id: cardHoverHandler
-        }
 
         Column {
             id: layout

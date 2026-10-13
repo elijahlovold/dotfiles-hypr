@@ -8,12 +8,11 @@ import qs.modules.theme
 // MusicPreview.qml/CalendarPreview.qml: just tails `stator-rs --log`, no
 // QML-side reimplementation needed since the formatting (columns, bar
 // chart) already comes fully rendered from the tool itself.
-PopupWindow {
+PillPopup {
     id: popup
 
-    required property Item anchorItem
-
-    readonly property alias hovered: cardHoverHandler.hovered
+    cardWidth: card.width
+    cardHeight: card.height
 
     property string logText: ""
 
@@ -34,35 +33,17 @@ PopupWindow {
         onTriggered: proc.running = true
     }
 
-    anchor {
-        item: popup.anchorItem
-        edges: Edges.Bottom
-        gravity: Edges.Bottom
-        margins.top: 0
-    }
-
     // Only mapped once the log is actually loaded, so the surface is
     // created already at its final size instead of appearing small (while
     // "Loading..." is showing) and needing to grow once the real content
     // arrives - popup/layer-shell surfaces don't reliably live-resize
     // after being mapped.
     visible: popup.logText.length > 0
-    implicitWidth: card.width
-    implicitHeight: card.height
-    color: "transparent"
 
-    Rectangle {
+    Item {
         id: card
         width: logView.implicitWidth + 32
         height: logView.implicitHeight + 32
-        radius: 8
-        color: Theme.pillBg
-        border.color: Theme.pillBorder
-        border.width: 1
-
-        HoverHandler {
-            id: cardHoverHandler
-        }
 
         Text {
             id: logView

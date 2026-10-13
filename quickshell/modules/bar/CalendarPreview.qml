@@ -10,12 +10,11 @@ import qs.modules.theme
 // (ported/adapted from ilyamiro-quickshell's CalendarPopup.qml, which also
 // bundled a weather widget and class-schedule panel - dropped here, out of
 // scope for "calendar popup" and not requested.)
-PopupWindow {
+PillPopup {
     id: popup
 
-    required property Item anchorItem
-
-    readonly property alias hovered: cardHoverHandler.hovered
+    cardWidth: card.width
+    cardHeight: card.height
 
     readonly property string dailyNoteScript: "todays-notes"
 
@@ -69,30 +68,10 @@ PopupWindow {
     onDisplayDateChanged: rebuildGrid()
     Component.onCompleted: rebuildGrid()
 
-    anchor {
-        item: popup.anchorItem
-        edges: Edges.Bottom
-        gravity: Edges.Bottom
-        margins.top: 0
-    }
-
-    visible: true
-    implicitWidth: 280
-    implicitHeight: card.height
-    color: "transparent"
-
-    Rectangle {
+    Item {
         id: card
-        width: popup.implicitWidth
+        width: 280
         height: layout.implicitHeight + 32
-        radius: 8
-        color: Theme.pillBg
-        border.color: Theme.pillBorder
-        border.width: 1
-
-        HoverHandler {
-            id: cardHoverHandler
-        }
 
         Column {
             id: layout

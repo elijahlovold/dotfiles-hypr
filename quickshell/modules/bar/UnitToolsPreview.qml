@@ -8,12 +8,11 @@ import qs.modules.theme
 // the pairs that come up most doing embedded/3D-print/PCB work) and a
 // timestamp reader (paste an epoch or date string, read it back both
 // ways). No process/service involved - everything below is local JS math.
-PopupWindow {
+PillPopup {
     id: popup
 
-    required property Item anchorItem
-
-    readonly property alias hovered: cardHoverHandler.hovered
+    cardWidth: card.width
+    cardHeight: card.height
 
     property string copiedField: ""
     function copy(field, value) {
@@ -80,29 +79,15 @@ PopupWindow {
         onTriggered: popup.nowTick = Date.now()
     }
 
-    anchor {
-        item: popup.anchorItem
-        edges: Edges.Bottom
-        gravity: Edges.Bottom
-        margins.top: 0
-    }
-
-    visible: true
-    implicitWidth: card.width
-    implicitHeight: card.height
-    color: "transparent"
-
     // Bar.qml's WlrLayershell.keyboardFocus: OnDemand only ever hands the
     // window real keyboard input once something inside it actually asks
     // for active focus - nothing does that on its own just by being shown.
     Component.onCompleted: fieldA.forceActiveFocus()
 
-    PopupFrame {
+    Item {
         id: card
         width: 260
         height: layout.implicitHeight + 32
-
-        HoverHandler { id: cardHoverHandler }
 
         Column {
             id: layout
