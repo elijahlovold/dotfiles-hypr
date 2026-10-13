@@ -19,7 +19,7 @@ import qs.modules.theme
 // While a PillPopup hangs off this pill (openPopups > 0) the plain
 // Rectangle chrome is swapped for an open-bottomed Shape outline, drawn the
 // same way as PillPopup's (fill + half-pixel 1px stroke) so the two
-// surfaces' walls meet seamlessly - see PillPopup.qml.
+// surfaces' walls meet seamlessly - see theme/PillPopup.qml.
 Rectangle {
     id: root
 

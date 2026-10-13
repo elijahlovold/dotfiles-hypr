@@ -48,12 +48,21 @@ Text {
 
     MouseArea {
         anchors.fill: parent
+        // Reaches up through the gap above the pill to the screen edge
+        // (overshoot past the bar's top is simply off-surface).
+        anchors.topMargin: -Theme.barHeight
         enabled: root.leftClickCommand.length > 0 || root.rightClickCommand.length > 0 || root.popupComponent !== null
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         hoverEnabled: root.popupComponent !== null
         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-        onEntered: closeTimer.stop()
-        onExited: closeTimer.restart()
+        onEntered: {
+            closeTimer.stop();
+            hoverOpenTimer.restart();
+        }
+        onExited: {
+            hoverOpenTimer.stop();
+            closeTimer.restart();
+        }
         onClicked: mouse => {
             if (mouse.button === Qt.RightButton && root.popupComponent !== null) {
                 root.previewOpen = !root.previewOpen;
@@ -65,6 +74,14 @@ Text {
                 proc.running = true;
             }
         }
+    }
+
+    // Opens on hover after a short dwell, so sweeping the cursor across the
+    // bar doesn't flash every popup on the way past. Clicks still toggle.
+    Timer {
+        id: hoverOpenTimer
+        interval: 50
+        onTriggered: root.previewOpen = true
     }
 
     // Grace period so crossing the small gap between the label and the

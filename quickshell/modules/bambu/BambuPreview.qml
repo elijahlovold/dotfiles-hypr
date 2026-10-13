@@ -6,13 +6,13 @@ import qs.modules.theme
 // Detail popup, right-click-toggled open from Bambu.qml. Pure presentation
 // over the `status` object the socket already parsed - no process/service
 // work happens here.
-PopupWindow {
+PillPopup {
     id: popup
 
-    required property Item anchorItem
-    required property var status
+    cardWidth: card.width
+    cardHeight: card.height
 
-    readonly property alias hovered: cardHoverHandler.hovered
+    required property var status
 
     readonly property real fraction: Math.max(0, Math.min(1, (popup.status.percent ?? 0) / 100))
 
@@ -23,28 +23,10 @@ PopupWindow {
         { label: "Bed", value: (popup.status.bedTemp ?? 0) + " / " + (popup.status.bedTarget ?? 0) + " °C" }
     ]
 
-    anchor {
-        item: popup.anchorItem
-        edges: Edges.Bottom
-        gravity: Edges.Bottom
-        margins.top: 0
-    }
-
-    visible: true
-    implicitWidth: card.width
-    implicitHeight: card.height
-    color: "transparent"
-
-    Rectangle {
+    Item {
         id: card
         width: 220
         height: layout.implicitHeight + 32
-        radius: 8
-        color: Theme.pillBg
-        border.color: Theme.pillBorder
-        border.width: 1
-
-        HoverHandler { id: cardHoverHandler }
 
         Column {
             id: layout

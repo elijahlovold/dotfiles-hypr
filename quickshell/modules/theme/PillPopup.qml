@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Shapes
 import Quickshell
-import qs.modules.theme
 
 // Popup that grows out of the bottom of its Pill as one continuous shape -
 // the pill's side walls flare out through concave fillets into the card
@@ -39,7 +38,7 @@ PopupWindow {
 
     readonly property alias hovered: hoverHandler.hovered
 
-    // The enclosing Pill (see Pill.qml's isPill) - the "tab" the card hangs
+    // The enclosing Pill (see bar/Pill.qml's isPill) - the "tab" the card hangs
     // from. Falls back to the widget itself outside a pill.
     readonly property Item pill: {
         for (let p = popup.anchorItem; p; p = p.parent)
@@ -177,7 +176,7 @@ PopupWindow {
             id: revealAnim
             from: 0
             to: 1
-            duration: 180
+            duration: 120
             easing.type: Easing.OutCubic
         }
         readonly property real minHeight: popup.neck + 2 * popup.cornerRadius + 1
