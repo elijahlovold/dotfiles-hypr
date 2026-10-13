@@ -287,6 +287,10 @@ PopupWindow {
 
         HoverHandler {
             id: hoverHandler
+            onPointChanged: {
+                if (frame.clickArmed && point.pressedButtons === 0)
+                    frame.takeClickFocus();
+            }
         }
 
         Shape {
@@ -326,25 +330,41 @@ PopupWindow {
             }
         }
 
-        // Click anywhere inside -> take keyboard focus. A passive grab on top
-        // of everything, so the clicked control underneath still gets it.
-        // Taken only after the button is released (and a tick later): taking
-        // the focus grab mid-click made Hyprland re-send pointer focus, which
-        // cancelled the click on whatever was under the cursor.
-        Item {
+        // Click anywhere inside -> take keyboard focus.
+        //
+        // Pointer mechanics (verified with qmltestrunner): a TapHandler in an
+        // overlay on top of the content takes the press and the MouseArea
+        // underneath never gets its click, and a handler on this parent never
+        // even sees presses that a child MouseArea accepts. So: an overlay
+        // MouseArea that notes the press and then *declines* it
+        // (accepted = false) - the press, hover, wheel and drags all continue
+        // to the real control underneath. It never sees the release, so
+        // focus is taken when the HoverHandler reports the next pointer
+        // update with no buttons held, or 400ms after the press if the
+        // pointer sits perfectly still - keeping the grab off the middle of
+        // an ordinary click.
+        property bool clickArmed: false
+
+        MouseArea {
             anchors.fill: parent
-            TapHandler {
-                gesturePolicy: TapHandler.DragThreshold
-                onPressedChanged: {
-                    if (!pressed)
-                        focusAfterClick.restart();
-                }
+            acceptedButtons: Qt.AllButtons
+            onPressed: mouse => {
+                frame.clickArmed = true;
+                clickFallback.restart();
+                mouse.accepted = false;
             }
         }
         Timer {
-            id: focusAfterClick
-            interval: 0
-            onTriggered: popup.activateKeyboard()
+            id: clickFallback
+            interval: 400
+            onTriggered: frame.takeClickFocus()
+        }
+        function takeClickFocus() {
+            if (!frame.clickArmed)
+                return;
+            frame.clickArmed = false;
+            clickFallback.stop();
+            popup.activateKeyboard();
         }
     }
 }
