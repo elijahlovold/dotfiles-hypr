@@ -96,7 +96,8 @@ PanelWindow {
         const startX = from ? from.x : Math.max(w * 0.05, Math.min(w * 0.95, root.targetX + (Math.random() * 2 - 1) * w * 0.35));
         const startY = from ? from.y : h;
         const length = Math.hypot(root.targetX - startX, root.targetY - startY);
-        root.mainBase = root.displace(startX, startY, root.targetX, root.targetY, root.style.levels, length * root.style.spread);
+        const spread = root.style.spread * (1 + (Math.random() * 2 - 1) * (root.style.spreadJitter ?? 0.4));
+        root.mainBase = root.displace(startX, startY, root.targetX, root.targetY, root.style.levels, length * spread);
 
         const n = root.mainBase.length;
         const forks = [];

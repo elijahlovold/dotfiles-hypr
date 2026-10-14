@@ -90,21 +90,75 @@ Singleton {
         return { x: Number(parts[i]), y: Number(parts[i + 1]), w: Number(parts[i + 2]), h: Number(parts[i + 3]) };
     }
 
-    // Points just inside two rects along the line between their centers:
-    // each one's edge facing the other, pulled `inset` of the way back
-    // toward its center.
-    function facingPoints(a, b, inset) {
+    // Whether a line from r's center along (dx, dy) leaves through its
+    // left/right side rather than top/bottom.
+    function exitsSideways(r, dx, dy) {
+        return r.w * Math.abs(dy) < r.h * Math.abs(dx);
+    }
+
+    // Shared stretch of two ranges, trimmed 10% each end - null if they
+    // barely overlap.
+    function overlap(a0, a1, b0, b1) {
+        const lo = Math.max(a0, b0), hi = Math.min(a1, b1), pad = (hi - lo) * 0.1;
+        return hi - lo >= 40 ? [lo + pad, hi - pad] : null;
+    }
+
+    function rand(lo, hi) {
+        return lo + (hi - lo) * Math.random();
+    }
+
+    // Position across the gap: on r's side facing `dir` (+1/-1) along the
+    // jump axis, at most cfg.maxInset of the window's depth inside, biased
+    // toward the edge.
+    function edgeDepth(lo, size, dir, cfg) {
+        const depth = cfg.maxInset * Math.pow(Math.random(), cfg.edgeBias);
+        return dir > 0 ? lo + size * (1 - depth) : lo + size * depth;
+    }
+
+    // Start/end points for a jump from window a to window b, on their facing
+    // edges. Works in jump-axis terms ("across" the gap, "along" the edges -
+    // x/y for side-by-side windows, y/x for stacked ones):
+    //   1. both ends' across positions (random depth near each edge)
+    //   2. a random along position for one end (which one is random too)
+    //   3. the other end's along within +/- the across distance * maxSlope,
+    //      so the bolt never runs steeper than that
+    // When the windows don't line up (no shared stretch, or they face each
+    // other on different axes) step 3 has nothing to stay inside, so each end
+    // just takes its own random spot along its edge.
+    function facingPoints(a, b, cfg) {
         const ax = a.x + a.w / 2, ay = a.y + a.h / 2;
         const bx = b.x + b.w / 2, by = b.y + b.h / 2;
         const dx = bx - ax, dy = by - ay;
         if (Math.abs(dx) < 1 && Math.abs(dy) < 1)
             return null;
+        // Overlapping (floating) windows - no gap to jump, go center to center.
         const exitA = Math.min(a.w / 2 / Math.abs(dx), a.h / 2 / Math.abs(dy));
         const enterB = Math.min(b.w / 2 / Math.abs(dx), b.h / 2 / Math.abs(dy));
-        // Overlapping (floating) windows - no gap to jump, go center to center.
-        const ta = exitA + enterB < 1 ? exitA * (1 - inset) : 0;
-        const tb = exitA + enterB < 1 ? enterB * (1 - inset) : 0;
-        return [Qt.point(ax + dx * ta, ay + dy * ta), Qt.point(bx - dx * tb, by - dy * tb)];
+        if (exitA + enterB >= 1)
+            return [Qt.point(ax, ay), Qt.point(bx, by)];
+
+        const sideA = root.exitsSideways(a, dx, dy), sideB = root.exitsSideways(b, -dx, -dy);
+        // Per window: across-axis [start, size, direction toward the other],
+        // along-axis [lo, hi] (10% in from the corners).
+        const axes = (r, sideways, dir) => sideways
+            ? { across: [r.x, r.w, Math.sign(dir.x)], along: [r.y + r.h * 0.1, r.y + r.h * 0.9] }
+            : { across: [r.y, r.h, Math.sign(dir.y)], along: [r.x + r.w * 0.1, r.x + r.w * 0.9] };
+        const A = axes(a, sideA, { x: dx, y: dy }), B = axes(b, sideB, { x: -dx, y: -dy });
+        const acrossA = root.edgeDepth(...A.across, cfg), acrossB = root.edgeDepth(...B.across, cfg);
+
+        const span = sideA !== sideB ? null : sideA ? root.overlap(a.y, a.y + a.h, b.y, b.y + b.h) : root.overlap(a.x, a.x + a.w, b.x, b.x + b.w);
+        let alongA, alongB;
+        if (span) {
+            const reach = Math.abs(acrossB - acrossA) * cfg.maxSlope;
+            const first = root.rand(...span);
+            const second = Math.max(span[0], Math.min(span[1], first + root.rand(-reach, reach)));
+            [alongA, alongB] = Math.random() < 0.5 ? [first, second] : [second, first];
+        } else {
+            alongA = root.rand(...A.along);
+            alongB = root.rand(...B.along);
+        }
+        const pt = (sideways, across, along) => sideways ? Qt.point(across, along) : Qt.point(along, across);
+        return [pt(sideA, acrossA, alongA), pt(sideB, acrossB, alongB)];
     }
 
     function handleCustom(data) {
@@ -112,7 +166,7 @@ Singleton {
         if (parts[0] === "bolt:focus" && parts.length >= 9) {
             if (!root.active("focus"))
                 return;
-            const pts = root.facingPoints(root.rect(parts, 1), root.rect(parts, 5), BoltConfig.focus.inset);
+            const pts = root.facingPoints(root.rect(parts, 1), root.rect(parts, 5), BoltConfig.focus);
             if (pts)
                 root.strike(pts[0], pts[1], "focus");
         } else if (parts[0] === "bolt:open" && parts.length >= 6) {

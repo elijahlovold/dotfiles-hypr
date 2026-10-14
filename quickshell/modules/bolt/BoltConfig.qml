@@ -27,10 +27,17 @@ Singleton {
 
     readonly property var focus: ({
         enabled: true,
-        // Where the bolt starts/ends inside each window: 0 = the window
-        // edges facing each other (very short jump across the gap),
-        // 1 = window centers.
-        inset: 0.3
+        // Each end lands at a random point on the window edge facing the
+        // other window. maxInset caps how far inside the window it may
+        // sit (fraction of the window's size along the jump - 0.125 = at
+        // most 1/8 in); edgeBias > 1 skews that toward the edge itself
+        // (depth = maxInset * random^edgeBias).
+        maxInset: 0.125,
+        edgeBias: 2,
+        // Steepest the bolt may run when the windows line up: the offset
+        // along the edges stays within maxSlope x the distance across the
+        // gap (1.0 = never steeper than 45 degrees).
+        maxSlope: 1.0
     })
 
     readonly property var open: ({
@@ -60,13 +67,14 @@ Singleton {
     //   travelMs  - time to reach the target (bar popups open on impact)
     //   levels    - midpoint-displacement subdivisions (2^levels segments)
     //   spread    - sideways displacement, as a fraction of bolt length
+    //   spreadJitter - per-strike random +/- on spread (0.4 = 60%..140%)
     //   forks     - [min, max] branch count
     //   width     - stroke width multiplier
     //   opacity   - overall opacity
     //   flash     - impact flash radius in px (0 = none)
     readonly property var styles: ({
         popup: { totalMs: 320, travelMs: 90, levels: 6, spread: 0.16, forks: [2, 3], width: 1.0, opacity: 1.0, flash: 40 },
-        focus: { totalMs: 190, travelMs: 60, levels: 4, spread: 0.12, forks: [0, 1], width: 0.55, opacity: 0.75, flash: 14 },
+        focus: { totalMs: 190, travelMs: 60, levels: 4, spread: 0.12, spreadJitter: 0.5, forks: [0, 1], width: 0.55, opacity: 0.75, flash: 14 },
         open:  { totalMs: 360, travelMs: 110, levels: 6, spread: 0.14, forks: [1, 3], width: 0.8, opacity: 0.9, flash: 56 }
     })
 }
