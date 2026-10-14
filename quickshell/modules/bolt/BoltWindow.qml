@@ -3,15 +3,15 @@ import QtQuick
 import QtQuick.Shapes
 import Quickshell
 import Quickshell.Wayland
-import qs.modules.common
 import qs.modules.theme
 
-// One lightning strike: a click-through fullscreen overlay that exists only
-// for the ~300ms the bolt is on screen (see Bolt.qml). The bolt rises from
-// a random point on the bottom edge to (targetX, targetY) - the bottom of a
-// bar pill - and BarPopups opens that pill's popup on impact
-// (BarPopups.travelMs), so the bolt is still crackling while the popup
-// drops open.
+// Lightning strikes on one screen: a click-through fullscreen overlay that
+// Bolt.qml creates on demand and tears down shortly after the last strike.
+// strike({ from, to, style }) draws a bolt from `from` (screen-local; null =
+// a random point on the bottom edge near the target) to `to`, timed and
+// sized by `style` (a BoltConfig.styles entry). A new strike replaces one
+// still in flight. BarPopups opens a pill's popup on impact (style
+// travelMs), so the bolt is still crackling while the popup drops open.
 //
 // Geometry: the main channel is classic midpoint displacement (each
 // segment's midpoint pushed sideways by a random amount that shrinks every
@@ -26,16 +26,17 @@ import qs.modules.theme
 PanelWindow {
     id: root
 
-    required property real targetX
-    required property real targetY
-
     signal finished
 
-    readonly property int totalMs: 320
-    readonly property real travelPortion: BarPopups.travelMs / root.totalMs
+    property var style: BoltConfig.styles.popup
+    property real targetX: 0
+    property real targetY: 0
+    readonly property real travelPortion: Math.min(0.95, root.style.travelMs / root.style.totalMs)
+    readonly property real widthScale: root.style.width ?? 1
 
     // 0 -> 1 over the whole strike; everything below derives from it.
     property real t: 0
+    property bool striking: false
 
     property var mainBase: []
     property var forkBases: [] // [{ from: index into mainBase, points: [...] }]
@@ -76,23 +77,38 @@ PanelWindow {
         return pts;
     }
 
-    function generate() {
-        const w = root.screen.width, h = root.screen.height;
-        // Launch point: somewhere on the bottom edge within ~35% of the
-        // screen width of the target, so it reads as heading for it.
-        const startX = Math.max(w * 0.05, Math.min(w * 0.95, root.targetX + (Math.random() * 2 - 1) * w * 0.35));
-        const length = Math.hypot(root.targetX - startX, root.targetY - h);
-        root.mainBase = root.displace(startX, h, root.targetX, root.targetY, 6, length * 0.16);
+    function strike(spec) {
+        strikeAnim.stop();
+        root.style = spec.style;
+        root.targetX = spec.to.x;
+        root.targetY = spec.to.y;
+        root.generate(spec.from);
+        root.striking = true;
+        root.t = 0;
+        root.frame();
+        strikeAnim.start();
+    }
 
+    function generate(from) {
+        const w = root.screen.width, h = root.screen.height;
+        // Default launch point: somewhere on the bottom edge within ~35% of
+        // the screen width of the target, so it reads as heading for it.
+        const startX = from ? from.x : Math.max(w * 0.05, Math.min(w * 0.95, root.targetX + (Math.random() * 2 - 1) * w * 0.35));
+        const startY = from ? from.y : h;
+        const length = Math.hypot(root.targetX - startX, root.targetY - startY);
+        root.mainBase = root.displace(startX, startY, root.targetX, root.targetY, root.style.levels, length * root.style.spread);
+
+        const n = root.mainBase.length;
         const forks = [];
-        const count = 2 + Math.floor(Math.random() * 2);
-        for (let f = 0; f < count; f++) {
-            const from = 8 + Math.floor(Math.random() * (root.mainBase.length * 0.55));
-            const a = root.mainBase[from], b = root.mainBase[Math.min(from + 2, root.mainBase.length - 1)];
+        const [minForks, maxForks] = root.style.forks;
+        const count = minForks + Math.floor(Math.random() * (maxForks - minForks + 1));
+        for (let f = 0; f < count && n > 3; f++) {
+            const at = Math.min(n - 2, Math.floor(n * 0.12 + Math.random() * n * 0.55));
+            const a = root.mainBase[at], b = root.mainBase[Math.min(at + 2, n - 1)];
             const dir = Math.atan2(b.y - a.y, b.x - a.x) + (Math.random() < 0.5 ? -1 : 1) * (0.4 + Math.random() * 0.5);
             const len = length * (0.08 + Math.random() * 0.14);
             forks.push({
-                from: from,
+                from: at,
                 points: root.displace(a.x, a.y, a.x + Math.cos(dir) * len, a.y + Math.sin(dir) * len, 4, len * 0.25)
             });
         }
@@ -128,7 +144,7 @@ PanelWindow {
             if (headIndex <= f.from)
                 continue;
             // Forks grow out a little behind the head.
-            const grown = Math.min(1, (headIndex - f.from) / 12);
+            const grown = Math.min(1, (headIndex - f.from) / Math.max(2, (root.mainBase.length - 1) * 0.2));
             forks.push(root.partial(f.points, grown, jitter));
         }
         root.forkPoints = forks;
@@ -138,31 +154,35 @@ PanelWindow {
         root.strength = fade * (landed ? 0.65 + Math.random() * 0.35 : 1);
     }
 
-    onTChanged: root.frame()
-
-    NumberAnimation on t {
-        id: strikeAnim
-        running: false
-        from: 0
-        to: 1
-        duration: root.totalMs
-        onFinished: root.finished()
+    onTChanged: {
+        if (root.striking)
+            root.frame();
     }
 
-    Component.onCompleted: {
-        root.generate();
-        root.frame();
-        strikeAnim.start();
+    NumberAnimation {
+        id: strikeAnim
+        target: root
+        property: "t"
+        from: 0
+        to: 1
+        duration: root.style.totalMs
+        onFinished: {
+            root.striking = false;
+            root.mainPoints = [];
+            root.forkPoints = [];
+            root.finished();
+        }
     }
 
     Shape {
         anchors.fill: parent
-        opacity: root.strength
+        visible: root.striking
+        opacity: root.strength * (root.style.opacity ?? 1)
         preferredRendererType: Shape.CurveRenderer
 
         // Glow
         ShapePath {
-            strokeWidth: 10
+            strokeWidth: 10 * root.widthScale
             strokeColor: Theme.withAlpha(Theme.accent, 0.18)
             fillColor: "transparent"
             capStyle: ShapePath.RoundCap
@@ -170,7 +190,7 @@ PanelWindow {
             PathPolyline { path: root.mainPoints }
         }
         ShapePath {
-            strokeWidth: 5
+            strokeWidth: 5 * root.widthScale
             strokeColor: Theme.withAlpha(Theme.accent, 0.12)
             fillColor: "transparent"
             capStyle: ShapePath.RoundCap
@@ -179,7 +199,7 @@ PanelWindow {
         }
         // Mid
         ShapePath {
-            strokeWidth: 3.5
+            strokeWidth: Math.max(1, 3.5 * root.widthScale)
             strokeColor: Theme.withAlpha(Theme.accent, 0.75)
             fillColor: "transparent"
             capStyle: ShapePath.RoundCap
@@ -188,7 +208,7 @@ PanelWindow {
         }
         // Core
         ShapePath {
-            strokeWidth: 1.4
+            strokeWidth: Math.max(0.8, 1.4 * root.widthScale)
             strokeColor: "white"
             fillColor: "transparent"
             capStyle: ShapePath.RoundCap
@@ -196,7 +216,7 @@ PanelWindow {
             PathPolyline { path: root.mainPoints }
         }
         ShapePath {
-            strokeWidth: 1
+            strokeWidth: Math.max(0.6, root.widthScale)
             strokeColor: Theme.withAlpha("white", 0.7)
             fillColor: "transparent"
             capStyle: ShapePath.RoundCap
@@ -205,13 +225,13 @@ PanelWindow {
         }
     }
 
-    // Impact flash where the bolt meets the pill.
+    // Impact flash where the bolt meets its target.
     Rectangle {
         readonly property real k: Math.max(0, (root.t - root.travelPortion) / (1 - root.travelPortion))
-        visible: root.t >= root.travelPortion
+        visible: root.striking && root.t >= root.travelPortion && root.style.flash > 0
         x: root.targetX - width / 2
         y: root.targetY - height / 2
-        width: 8 + 40 * k
+        width: 8 * root.widthScale + root.style.flash * k
         height: width
         radius: width / 2
         color: Theme.withAlpha(Theme.accent, 0.5)

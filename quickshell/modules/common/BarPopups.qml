@@ -3,26 +3,21 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
+import qs.modules.bolt
 
 // Keyboard/IPC entry point for opening bar popups by name - e.g. the
 // keytree "popups" config (Super+P) runs `qs ipc call barpopup open sound`.
 // Widgets opt in with a PopupTarget child; summon() picks the instance on
 // the focused monitor's bar, fires a lightning strike at its pill (drawn by
-// modules/bolt) and opens the popup the moment the bolt lands.
+// modules/bolt - from the keytree node that summoned it, if any) and opens
+// the popup the moment the bolt lands.
 //
 // Lives in common rather than bar so modules outside bar (bambu) can
 // register without bar <-> bambu becoming a circular import.
 Singleton {
     id: root
 
-    // How long the bolt takes to reach the pill - the popup opens on impact.
-    // Bolt.qml reads this so the two stay in sync.
-    readonly property int travelMs: 90
-
     property var targets: []
-
-    // Bolt.qml listens; coordinates are screen-local logical pixels.
-    signal strike(string screenName, real x, real y)
 
     function register(target) {
         root.targets = root.targets.concat([target]);
@@ -52,26 +47,34 @@ Singleton {
 
         root.pending = target;
         root.pendingPill = pill;
-        root.strike(target.screenName, hit.x, hit.y);
+        const origin = Bolts.takeOrigin();
+        if (!Bolts.active("popup")) {
+            root.land();
+            return;
+        }
+        // The popup opens on impact, so the two stay in sync.
+        impactTimer.interval = BoltConfig.styles.popup.travelMs;
+        Bolts.strike(origin, Bolts.toGlobal(target.screenName, hit.x, hit.y), "popup");
         impactTimer.restart();
     }
 
     property var pending: null
     property Item pendingPill: null
 
+    function land() {
+        // `summoned` lets PillPopup close it again on its own if the
+        // cursor never comes over (no hover -> no hover-out to close it).
+        if (root.pendingPill?.isPill)
+            root.pendingPill.summoned = true;
+        if (root.pending?.widget)
+            root.pending.widget.previewOpen = true;
+        root.pending = null;
+        root.pendingPill = null;
+    }
+
     Timer {
         id: impactTimer
-        interval: root.travelMs
-        onTriggered: {
-            // `summoned` lets PillPopup close it again on its own if the
-            // cursor never comes over (no hover -> no hover-out to close it).
-            if (root.pendingPill?.isPill)
-                root.pendingPill.summoned = true;
-            if (root.pending?.widget)
-                root.pending.widget.previewOpen = true;
-            root.pending = null;
-            root.pendingPill = null;
-        }
+        onTriggered: root.land()
     }
 
     IpcHandler {

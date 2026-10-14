@@ -47,9 +47,8 @@ hl.window_rule({
 --     ignore_alpha = 0.01,
 -- })
 
--- Lightning strike overlay for keyboard-opened bar popups
--- (quickshell/modules/bolt) - lives ~300ms, so the default layersIn fade
--- would eat most of it.
+-- Lightning strike overlay (quickshell/modules/bolt) - strikes last
+-- ~200-350ms, so the default layersIn fade would eat most of them.
 hl.layer_rule({
     match = { namespace = "^quickshell:bolt$" },
     no_anim = true,

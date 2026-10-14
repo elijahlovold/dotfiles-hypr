@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell.Io
 import qs.modules.theme
+import qs.modules.bolt
 
 Text {
     id: root
@@ -44,6 +45,11 @@ Text {
             });
         }
         return cores;
+    }
+
+    // Source of the bolt when btop opens (BoltConfig.open.apps).
+    BoltAnchor {
+        name: "cpu"
     }
 
     FileView {

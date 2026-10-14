@@ -367,7 +367,16 @@ Item {
 
     // ── Node cards ────────────────────────────────────────────────────────────
 
+    // Window-local center of the node for `key`, or null - where a launch
+    // bolt leaves from (see KeytreeWindow.pressKey).
+    function nodeCenter(key) {
+        const i = root.items.findIndex(it => it.key === key);
+        const node = i >= 0 ? nodeRepeater.itemAt(i) : null;
+        return node ? node.mapToItem(null, node.width / 2, node.height / 2) : null;
+    }
+
     Repeater {
+        id: nodeRepeater
         model: root.items
 
         delegate: Item {

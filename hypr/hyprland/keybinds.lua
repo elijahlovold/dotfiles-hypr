@@ -1,4 +1,5 @@
 require("hyprland.variables")
+local bolt = require("hyprland.bolt")
 
 local mod = "SUPER"
 
@@ -20,15 +21,16 @@ hl.bind(mod .. " + S", hl.dsp.group.toggle())
 hl.bind(mod .. " + W", hl.dsp.layout("fit active"))
 hl.bind(mod .. " + E", hl.dsp.layout("fit toend"))
 
--- Move focus with vim keys
-hl.bind(mod .. " + K", hl.dsp.focus({ direction = "u" }))
-hl.bind(mod .. " + J", hl.dsp.focus({ direction = "d" }))
-hl.bind(mod .. " + Up", hl.dsp.focus({ direction = "u" }))
-hl.bind(mod .. " + Down", hl.dsp.focus({ direction = "d" }))
-hl.bind(mod .. " + H", hl.dsp.focus({ direction = "l" }))
-hl.bind(mod .. " + L", hl.dsp.focus({ direction = "r" }))
-hl.bind(mod .. " + Left",  hl.dsp.focus({ direction = "l" }))
-hl.bind(mod .. " + Right", hl.dsp.focus({ direction = "r" }))
+-- Move focus with vim keys. bolt.focus = hl.dsp.focus + a lightning bolt
+-- between the two windows (hyprland/bolt.lua, quickshell/modules/bolt).
+hl.bind(mod .. " + K", bolt.focus({ direction = "u" }))
+hl.bind(mod .. " + J", bolt.focus({ direction = "d" }))
+hl.bind(mod .. " + Up", bolt.focus({ direction = "u" }))
+hl.bind(mod .. " + Down", bolt.focus({ direction = "d" }))
+hl.bind(mod .. " + H", bolt.focus({ direction = "l" }))
+hl.bind(mod .. " + L", bolt.focus({ direction = "r" }))
+hl.bind(mod .. " + Left",  bolt.focus({ direction = "l" }))
+hl.bind(mod .. " + Right", bolt.focus({ direction = "r" }))
 
 -- Scrolling layout
 hl.bind(mod .. " + period", hl.dsp.layout("swapcol r"))
@@ -52,8 +54,8 @@ hl.bind(mod .. " + SHIFT + minus", hl.dsp.window.move({ workspace = "special:mag
 hl.bind(mod .. " + N", hl.dsp.workspace.move({ monitor = "+1" }))
 hl.bind(mod .. " + SHIFT + N", hl.dsp.workspace.move({ monitor = "-1" }))
 
-hl.bind(mod .. " + Tab", hl.dsp.focus({ direction = "r" }))
-hl.bind(mod .. " + SHIFT + Tab", hl.dsp.focus({ direction = "l" }))
+hl.bind(mod .. " + Tab", bolt.focus({ direction = "r" }))
+hl.bind(mod .. " + SHIFT + Tab", bolt.focus({ direction = "l" }))
 
 -- i3: mod+g bounces 11 -> focus left -> 12 -> focus right -> back to 11
 hl.bind(mod .. " + G", function()
@@ -192,7 +194,7 @@ hl.bind(mod .. " + Return", hl.dsp.exec_cmd(terminal))
 hl.bind(mod .. " + X", hl.dsp.exec_cmd("firefox"))
 hl.bind(mod .. " + ALT + X", hl.dsp.exec_cmd("firefox --private-window"))
 hl.bind(mod .. " + SHIFT + X", hl.dsp.exec_cmd("google-chrome"))
-hl.bind(mod .. " + O", hl.dsp.focus({ last = true }))
+hl.bind(mod .. " + O", bolt.focus({ last = true }))
 
 hl.bind(mod .. " + SHIFT + O", hl.dsp.exec_cmd("alacritty --working-directory $(mount.sh)"))
 

@@ -4,6 +4,8 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.modules.theme
+import qs.modules.bolt
+import qs.modules.common
 
 // QML/quickshell port of keytree's C++ KeyTreeModel + Main.qml. Runs as an
 // overlay-layer surface covering the whole screen (transparent, click/input
@@ -120,7 +122,18 @@ PanelWindow {
             root.stack = [...root.stack, root.current];
             root.current = node;
         } else if (node.cmd) {
-            Quickshell.execDetached(["sh", "-c", node.cmd]);
+            // The picked node becomes the origin of the next bolt (bar
+            // popup / app window opening) - see modules/bolt/Bolts.qml.
+            const p = radialView.nodeCenter(k);
+            if (p)
+                Bolts.setOrigin(Qt.point(p.x + root.screen.x, p.y + root.screen.y));
+            // Bar popups are summoned in-process rather than round-tripping
+            // through `qs ipc`, so the bolt leaves the node immediately.
+            const popup = node.cmd.match(/^qs ipc call barpopup open (\S+)$/);
+            if (popup)
+                BarPopups.summon(popup[1]);
+            else
+                Quickshell.execDetached(["sh", "-c", node.cmd]);
             root.requestClose();
         }
     }
