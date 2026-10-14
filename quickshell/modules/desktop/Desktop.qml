@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.modules.bolt
 
 // Entry point: instantiate once from shell.qml. Toggled from the bar
 // (DesktopWidgetToggle.qml) or via IPC, same pattern as Keytree/ImagePicker:
@@ -8,6 +9,19 @@ import Quickshell.Io
 //   qs ipc call desktop edit
 Scope {
     id: root
+
+    // Bolt from the bar's toggle to the card on show/hide (BoltConfig.desktop).
+    // Deferred so a freshly shown card has been created and reported its rect.
+    Connections {
+        target: DesktopOverlayStore
+        function onToggled(shown) {
+            Qt.callLater(() => {
+                const r = DesktopOverlayStore.cardRect;
+                if (r && r.w > 0 && Bolts.active("desktop"))
+                    Bolts.strike(Bolts.anchorPoint("desktop"), Qt.point(r.x + r.w / 2, r.y + r.h / 2), "desktop");
+            });
+        }
+    }
 
     IpcHandler {
         target: "desktop"

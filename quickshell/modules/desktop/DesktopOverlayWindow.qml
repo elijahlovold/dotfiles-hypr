@@ -67,6 +67,14 @@ PanelWindow {
         height: item?.implicitHeight ?? 0
     }
 
+    readonly property var globalRect: ({
+            x: root.screen.x + root._marginLeft,
+            y: root.screen.y + root._marginTop,
+            w: root.implicitWidth,
+            h: root.implicitHeight
+        })
+    onGlobalRectChanged: DesktopOverlayStore.cardRect = root.globalRect
+
     // Re-read position from store when edit mode exits (overlay may have moved us).
     Connections {
         target: DesktopOverlayStore
@@ -83,5 +91,6 @@ PanelWindow {
         var pos = DesktopOverlayStore.getPos();
         root._nx = pos.nx;
         root._ny = pos.ny;
+        DesktopOverlayStore.cardRect = root.globalRect;
     }
 }

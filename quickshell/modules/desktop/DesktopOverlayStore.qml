@@ -29,9 +29,20 @@ Singleton {
     readonly property string _configDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/quickshell-desktop"
     readonly property string _path: _configDir + "/position.json"
 
+    // Emitted on an actual show/hide (not on load), for the bolt in Desktop.qml.
+    signal toggled(bool shown)
+
+    // Global rect of the card, kept up to date by DesktopOverlayWindow and
+    // left in place after it's destroyed - so hiding still knows where the
+    // card was. null until it's been shown once.
+    property var cardRect: null
+
     function setVisible(v) {
+        const changed = data.visible !== v;
         data.visible = v;
         _save();
+        if (changed)
+            root.toggled(v);
     }
 
     function toggleVisible() {

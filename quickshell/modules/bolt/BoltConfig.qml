@@ -40,6 +40,11 @@ Singleton {
         maxSlope: 1.0
     })
 
+    // Desktop clock show/hide: from the bar's desktop toggle to the card.
+    readonly property var desktop: ({
+        enabled: true
+    })
+
     // Wallpaper picker: jumps from the old selection to the new one, placed
     // like focus jumps (same meaning for maxInset/edgeBias/maxSlope).
     readonly property var picker: ({
@@ -101,6 +106,7 @@ Singleton {
         focus: { totalMs: 190, travelMs: 60, levels: 4, spread: 0.12, spreadJitter: 0.5, forks: [0, 1], width: 0.55, opacity: 0.75, flash: 14 },
         open:  { totalMs: 360, travelMs: 110, levels: 6, spread: 0.14, forks: [1, 3], width: 0.8, opacity: 0.9, flash: 56 },
         swirl: { totalMs: 520, travelMs: 380, levels: 2, spread: 0.45, spreadJitter: 0.3, forks: [0, 0], width: 0.7, opacity: 0.9, flash: 34, tail: 0.3 },
+        desktop: { totalMs: 340, travelMs: 100, levels: 6, spread: 0.15, forks: [1, 3], width: 0.85, opacity: 0.95, flash: 60 },
         picker: { totalMs: 190, travelMs: 60, levels: 4, spread: 0.12, spreadJitter: 0.5, forks: [0, 1], width: 0.55, opacity: 0.85, flash: 14 },
         keytree: { totalMs: 230, travelMs: 70, levels: 4, spread: 0.16, spreadJitter: 0.5, forks: [0, 1], width: 0.6, opacity: 0.85, flash: 22 }
     })
