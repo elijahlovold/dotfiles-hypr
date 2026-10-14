@@ -17,8 +17,8 @@ Text {
     property real vramTotalGb: 1
 
     text: full
-        ? root.icon + "  " + root.busyPercent + "%  " + root.vramUsedGb.toFixed(1) + " / " + root.vramTotalGb.toFixed(1) + "G"
-        : root.icon + "  " + root.busyPercent + "%"
+        ? root.icon + "  " + root.busyPercent.toString().padStart(3, " ") + "%  " + root.vramUsedGb.toFixed(1).padStart(root.vramTotalGb.toFixed(1).length, " ") + " / " + root.vramTotalGb.toFixed(1) + "G"
+        : root.icon + "  " + root.busyPercent.toString().padStart(3, " ") + "%"
 
     color: Theme.text
     font.family: Theme.fontFamily

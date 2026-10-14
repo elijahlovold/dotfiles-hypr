@@ -16,7 +16,7 @@ Item {
 
     readonly property string elapsed: {
         const s = Math.max(0, Math.floor(root.now - ScreenRecState.startedAt));
-        return "%1:%2".arg(Math.floor(s / 60)).arg(String(s % 60).padStart(2, "0"));
+        return "%1:%2".arg(String(Math.floor(s / 60)).padStart(2, "0")).arg(String(s % 60).padStart(2, "0"));
     }
 
     implicitWidth: contentRow.width

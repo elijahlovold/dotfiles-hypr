@@ -28,9 +28,6 @@ end)
 hl.bind(mod .. " + SHIFT + Space", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen({ action = "toggle" }))
 
--- hl.bind(mod .. " + P", hl.dsp.window.pseudo()) -- dwindle - no i3 analog, kept as a Hyprland extra
--- hl.bind(mod .. " + E", hl.dsp.layout("togglesplit")) -- i3: mod+e "layout toggle split"
-
 -- i3: mod+s layout stacking / mod+w layout tabbed -> Hyprland's window groups are the
 -- closest equivalent to both (there's no separate stacked-vs-tabbed container type).
 hl.bind(mod .. " + S", hl.dsp.group.toggle())
@@ -48,6 +45,7 @@ hl.bind(mod .. " + H", bolt.focus({ direction = "l" }))
 hl.bind(mod .. " + L", bolt.focus({ direction = "r" }))
 hl.bind(mod .. " + Left",  bolt.focus({ direction = "l" }))
 hl.bind(mod .. " + Right", bolt.focus({ direction = "r" }))
+hl.bind(mod .. " + O", bolt.focus({ last = true }))
 
 -- Scrolling layout
 hl.bind(mod .. " + period", hl.dsp.layout("swapcol r"))
@@ -198,14 +196,13 @@ hl.bind("SUPER + SHIFT + Print", hl.dsp.exec_cmd(
     '[ -n "$file" ] && satty -f "$file" --copy-command wl-copy'
 ))
 
-hl.bind(mod .. " + V", hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
-
 -- --- apps ---
--- hl.bind(mod .. " + D", hl.dsp.exec_cmd("keytree"))
+-- Quickshell keytree + utils
 hl.bind(mod .. " + D", hl.dsp.exec_cmd("qs ipc call keytree toggle default"))
 hl.bind(mod .. " + Y", hl.dsp.exec_cmd("qs ipc call keytree toggle stator"))
 hl.bind(mod .. " + P", hl.dsp.exec_cmd("qs ipc call keytree toggle popups"))
 hl.bind(mod .. " + B", hl.dsp.exec_cmd("qs ipc call keybinds toggle"))
+hl.bind(mod .. " + V", hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
 
 -- App launchers: bolt.exec = hl.dsp.exec_cmd + a bolt from the focused
 -- window to the new one (or a small spiral on it if nothing had focus).
@@ -213,7 +210,6 @@ hl.bind(mod .. " + Return", bolt.exec(terminal))
 hl.bind(mod .. " + X", bolt.exec("firefox"))
 hl.bind(mod .. " + ALT + X", bolt.exec("firefox --private-window"))
 hl.bind(mod .. " + SHIFT + X", bolt.exec("google-chrome"))
-hl.bind(mod .. " + O", bolt.focus({ last = true }))
 
 hl.bind(mod .. " + SHIFT + O", bolt.exec("alacritty --working-directory $(mount.sh)"))
 
@@ -224,8 +220,6 @@ hl.bind(mod .. " + T", bolt.exec(terminal .. " --working-directory ~/vault -e nv
 hl.bind(mod .. " + M", bolt.exec(terminal .. " --class btop -e btop"))
 
 hl.bind(mod .. " + ALT + Return", hl.dsp.exec_cmd("spotify-queue"), { release = true })
-
--- hl.bind(mod .. " + CTRL + W", hl.dsp.exec_cmd("rofi-wifi-menu"))
 
 hl.bind("SUPER + grave", hl.dsp.exec_cmd('wtype -s 150 "$(date +%F)"'))
 

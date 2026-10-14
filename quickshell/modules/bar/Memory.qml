@@ -15,8 +15,8 @@ Text {
     }
 
     text: root.full
-        ? root.icon + "  " + root.fmt(root.usedKb) + " / " + root.fmt(root.totalKb) + "G"
-        : root.icon + "  " + Math.round(100 * root.usedKb / root.totalKb) + "%"
+        ? root.icon + "  " + root.fmt(root.usedKb).padStart(root.fmt(root.totalKb).length, " ") + " / " + root.fmt(root.totalKb) + "G"
+        : root.icon + "  " + Math.round(100 * root.usedKb / root.totalKb).toString().padStart(3, " ") + "%"
     color: Theme.text
     font.family: Theme.fontFamily
     font.pixelSize: Theme.fontSize

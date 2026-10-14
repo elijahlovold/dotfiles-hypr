@@ -61,7 +61,7 @@ Item {
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: root.icon + "  " + root.status.percent + "%"
+            text: root.icon + "  " + String(root.status.percent).padStart(3, " ") + "%"
             color: root.status.state === "paused" ? Theme.dimText : Theme.text
             font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSize
