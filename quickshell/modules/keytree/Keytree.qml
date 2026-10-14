@@ -27,8 +27,14 @@ Scope {
         const name = config && config.length > 0 ? config : "default";
         if (root.isOpen && root.activeConfig === name)
             return;
-        // Drop whatever's there first (a closing window, or another
-        // config's) so the Loader builds a fresh window at the root level.
+        // A window that's closing, or showing another config, is reused:
+        // reopen() cancels its close and restarts it at the root level on
+        // the same surface (see KeytreeWindow.reopen for why not a new one).
+        const existing = windowLoader.item;
+        root.activeConfig = name;
+        if (!existing || existing.reopen())
+            return;
+        // It lost keyboard focus - build a fresh one.
         root.activeConfig = "";
         root.activeConfig = name;
     }

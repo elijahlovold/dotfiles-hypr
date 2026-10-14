@@ -37,6 +37,28 @@ PanelWindow {
         closeTimer.start();
     }
 
+    // Cancel a close in progress and start over at the root level of
+    // `configName`, keeping this surface - swapping in a fresh window while
+    // this one still holds keyboard focus lets the compositor hand focus to
+    // whatever's under the cursor as the old one unmaps, which closes the
+    // new one straight away. Returns false if this window has already lost
+    // focus (it's closing *because* of that) - then a fresh window is the
+    // only way to get focus back, and nothing is left to steal it.
+    function reopen() {
+        if (!contentItem.activeFocus)
+            return false;
+        closeTimer.stop();
+        if (root.searchMode)
+            root.exitSearch();
+        // Before the level reset, so new node delegates animate in rather
+        // than with the closing timings.
+        root.closing = false;
+        root.stack = [];
+        root.current = root.virtualRoot;
+        Qt.callLater(root.openingSwirl);
+        return true;
+    }
+
     Timer {
         id: closeTimer
         interval: radialView.closeWaitMs
@@ -56,8 +78,22 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     // OnDemand (not Exclusive) - Exclusive prevents the compositor from ever
     // handing keyboard focus elsewhere, which would make "close when focus
-    // is lost" impossible to trigger in the first place.
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    // is lost" impossible to trigger in the first place. Dropped to None the
+    // moment something is launched (see `launched`).
+    WlrLayershell.keyboardFocus: root.launched ? WlrKeyboardFocus.None : WlrKeyboardFocus.OnDemand
+
+    // Set when a node/search result runs its command. Gives up keyboard
+    // focus immediately instead of holding it through the close animation:
+    // Hyprland won't move focus off a focused layer (misc:
+    // layers_hog_keyboard_focus), so an app that maps while the menu is
+    // still fading out would otherwise open unfocused, and once the menu
+    // unmaps focus falls to whatever's under the (warped) cursor instead.
+    property bool launched: false
+
+    function launch(cmd) {
+        root.launched = true;
+        Quickshell.execDetached(["sh", "-c", cmd]);
+    }
 
     mask: Region {
         item: contentItem
@@ -119,8 +155,12 @@ PanelWindow {
         if (!node)
             return;
         if (node.children) {
+            // Aim at the picked node before the level swaps out from under it.
+            const picked = root.menuPoint(radialView.nodeFinalCenter(root.items.findIndex(it => it.key === k)));
             root.stack = [...root.stack, root.current];
             root.current = node;
+            if (picked)
+                root.menuBolt("enter", root.menuPoint(radialView.center), picked);
         } else if (node.cmd) {
             // The picked node becomes the origin of the next bolt (bar
             // popup / app window opening) - see modules/bolt/Bolts.qml.
@@ -133,7 +173,7 @@ PanelWindow {
             if (popup)
                 BarPopups.summon(popup[1]);
             else
-                Quickshell.execDetached(["sh", "-c", node.cmd]);
+                root.launch(node.cmd);
             root.requestClose();
         }
     }
@@ -142,9 +182,38 @@ PanelWindow {
         if (root.stack.length > 0) {
             root.current = root.stack[root.stack.length - 1];
             root.stack = root.stack.slice(0, -1);
+            // Deferred so the parent level's nodes exist to start from.
+            Qt.callLater(() => {
+                const from = root.menuPoint(radialView.nodeFinalCenter(Math.floor(Math.random() * root.items.length)));
+                if (from)
+                    root.menuBolt("back", from, root.menuPoint(radialView.center));
+            });
         } else {
             root.requestClose();
         }
+    }
+
+    // ── Lightning (see modules/bolt, BoltConfig.keytree) ──────────────────────
+    // Drawn by a BoltItem inside this window, so it's always above the menu.
+    // RadialView points are mapped into menuBoltItem's center-relative frame
+    // as they're read, before any level change can resize contentItem.
+    function menuPoint(p) {
+        return p ? radialView.mapToItem(menuBoltItem, p.x, p.y) : null;
+    }
+
+    function menuBolt(kind, from, to) {
+        if (root.closing || root.searchMode || !Bolts.active("keytree") || !BoltConfig.keytree[kind])
+            return;
+        if (kind === "swirl")
+            menuBoltItem.strike({ path: Bolts.spiralPath(from, to, BoltConfig.keytree.swirlTurns), style: BoltConfig.styles.swirl });
+        else
+            menuBoltItem.strike({ from: from, to: to, style: BoltConfig.styles.keytree });
+    }
+
+    function openingSwirl() {
+        const target = root.menuPoint(radialView.nodeFinalCenter(Math.floor(Math.random() * root.items.length)));
+        if (target)
+            root.menuBolt("swirl", root.menuPoint(radialView.center), target);
     }
 
     // ── Window sizing (mirrors Main.qml's baseSize/spiralWindowSize) ─────────
@@ -233,7 +302,7 @@ PanelWindow {
 
     function confirmSearch() {
         if (root.searchSelection < root.searchResults.length) {
-            Quickshell.execDetached(["sh", "-c", root.searchResults[root.searchSelection]]);
+            root.launch(root.searchResults[root.searchSelection]);
             root.requestClose();
         }
     }
@@ -322,8 +391,7 @@ PanelWindow {
             Connections {
                 target: root
                 function onClosingChanged() {
-                    if (root.closing)
-                        haloCanvas.haloScale = 0;
+                    haloCanvas.haloScale = root.closing ? 0 : 1;
                 }
             }
 
@@ -428,6 +496,19 @@ PanelWindow {
         }
     }
 
+    // Fixed-size and centered on the window, like contentItem - so bolt
+    // points are effectively relative to the menu's center. That holds no
+    // matter when the layer surface gets its real size from the compositor
+    // (it isn't known yet when the opening swirl is computed) or how
+    // contentItem resizes between levels.
+    BoltItem {
+        id: menuBoltItem
+        anchors.centerIn: parent
+        width: 4000
+        height: 4000
+        visible: !root.searchMode
+    }
+
     Component.onCompleted: {
         // Warp the cursor to the popup's center before grabbing focus. The
         // mask only makes the centered contentItem region interactive - if
@@ -440,5 +521,7 @@ PanelWindow {
             String(Math.round(root.screen.x + root.screen.width / 2)),
             String(Math.round(root.screen.y + root.screen.height / 2))]);
         contentItem.forceActiveFocus();
+        // After the first frame's layout, so the nodes it aims at exist.
+        Qt.callLater(root.openingSwirl);
     }
 }

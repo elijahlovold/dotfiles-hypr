@@ -75,8 +75,13 @@ Item {
     Component.onCompleted: root._replayReveal()
     onItemsChanged: if (!root.closing)
         root._replayReveal()
-    onClosingChanged: if (closing)
-        revealProgress = 0
+    // Reopened mid-close (KeytreeWindow.reopen) - play the reveal again.
+    onClosingChanged: {
+        if (closing)
+            revealProgress = 0;
+        else
+            root._replayReveal();
+    }
 
     readonly property color cLeafBg:    Theme.leafBg
     readonly property color cGroupBg:   Theme.groupBg
@@ -375,6 +380,16 @@ Item {
         return node ? node.mapToItem(null, node.width / 2, node.height / 2) : null;
     }
 
+    // Final (post-animation) center of node `index` in this view's
+    // coordinates, or null. Spiral-mode nodes travel during their entrance,
+    // so bolts aim here rather than at where the node currently is.
+    function nodeFinalCenter(index) {
+        const node = nodeRepeater.itemAt(index);
+        return node ? Qt.point(node.px, node.py) : null;
+    }
+
+    readonly property point center: Qt.point(root.cx, root.cy)
+
     Repeater {
         id: nodeRepeater
         model: root.items
@@ -453,8 +468,7 @@ Item {
             Connections {
                 target: root
                 function onClosingChanged() {
-                    if (root.closing)
-                        node.entryProgress = 0;
+                    node.entryProgress = root.closing ? 0 : 1;
                 }
             }
 

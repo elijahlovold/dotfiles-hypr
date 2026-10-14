@@ -40,9 +40,21 @@ Singleton {
         maxSlope: 1.0
     })
 
+    // Bolts inside the keytree menu itself (drawn in its own window).
+    readonly property var keytree: ({
+        enabled: true,
+        swirl: true,       // on open: spiral out from the center onto a random node
+        swirlTurns: 1.5,
+        enter: true,       // opening a submenu: center -> the picked node
+        back: true         // going back up: a random node -> center
+    })
+
     readonly property var open: ({
         enabled: true,
         allApps: false,
+        // Any window that opens within originMaxAgeMs of a keytree launch
+        // gets a bolt from that node, whatever its class.
+        fromKeytree: true,
         // Where a bolt comes from when no keytree node launched the app:
         //   "edge"          - random point on the bottom edge
         //   "anchor:<name>" - a BoltAnchor { name: ... } in the bar
@@ -72,9 +84,14 @@ Singleton {
     //   width     - stroke width multiplier
     //   opacity   - overall opacity
     //   flash     - impact flash radius in px (0 = none)
+    //   tail      - draw only this fraction of the path behind the head
+    //               while travelling (comet look; 0/absent = whole channel)
+    // For waypoint paths (the keytree swirl) `levels` is per leg.
     readonly property var styles: ({
         popup: { totalMs: 320, travelMs: 90, levels: 6, spread: 0.16, forks: [2, 3], width: 1.0, opacity: 1.0, flash: 40 },
         focus: { totalMs: 190, travelMs: 60, levels: 4, spread: 0.12, spreadJitter: 0.5, forks: [0, 1], width: 0.55, opacity: 0.75, flash: 14 },
-        open:  { totalMs: 360, travelMs: 110, levels: 6, spread: 0.14, forks: [1, 3], width: 0.8, opacity: 0.9, flash: 56 }
+        open:  { totalMs: 360, travelMs: 110, levels: 6, spread: 0.14, forks: [1, 3], width: 0.8, opacity: 0.9, flash: 56 },
+        swirl: { totalMs: 520, travelMs: 380, levels: 2, spread: 0.45, spreadJitter: 0.3, forks: [0, 0], width: 0.7, opacity: 0.9, flash: 34, tail: 0.3 },
+        keytree: { totalMs: 230, travelMs: 70, levels: 4, spread: 0.16, spreadJitter: 0.5, forks: [0, 1], width: 0.6, opacity: 0.85, flash: 22 }
     })
 }

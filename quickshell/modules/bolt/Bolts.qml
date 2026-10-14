@@ -85,6 +85,23 @@ Singleton {
         return null;
     }
 
+    // Waypoints spiralling out from `center` and ending exactly on `target`,
+    // `turns` times around (direction random). For BoltItem's { path }.
+    function spiralPath(center, target, turns) {
+        const dx = target.x - center.x, dy = target.y - center.y;
+        const R = Math.hypot(dx, dy), end = Math.atan2(dy, dx);
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        const steps = Math.max(8, Math.round(turns * 20));
+        const pts = [];
+        for (let i = 0; i <= steps; i++) {
+            const k = i / steps;
+            const theta = end - dir * turns * 2 * Math.PI * (1 - k);
+            const r = R * Math.pow(k, 0.7);
+            pts.push(Qt.point(center.x + r * Math.cos(theta), center.y + r * Math.sin(theta)));
+        }
+        return pts;
+    }
+
     // ── Hyprland triggers ────────────────────────────────────────────────────
     function rect(parts, i) {
         return { x: Number(parts[i]), y: Number(parts[i + 1]), w: Number(parts[i + 2]), h: Number(parts[i + 3]) };
@@ -174,10 +191,13 @@ Singleton {
                 return;
             const r = root.rect(parts, 1);
             const cls = parts.slice(5).join(" ");
-            const app = BoltConfig.open.apps[cls];
-            if ((!app && !BoltConfig.open.allApps) || r.w <= 0 || r.h <= 0)
+            if (r.w <= 0 || r.h <= 0)
                 return;
-            const from = root.takeOrigin() ?? root.resolveFrom(app?.from ?? BoltConfig.open.defaultFrom);
+            const app = BoltConfig.open.apps[cls];
+            const origin = app || BoltConfig.open.allApps || BoltConfig.open.fromKeytree ? root.takeOrigin() : null;
+            if (!app && !BoltConfig.open.allApps && !origin)
+                return;
+            const from = origin ?? root.resolveFrom(app?.from ?? BoltConfig.open.defaultFrom);
             root.strike(from, Qt.point(r.x + r.w / 2, r.y + r.h / 2), "open");
         }
     }
