@@ -82,6 +82,37 @@ PanelWindow {
     // moment something is launched (see `launched`).
     WlrLayershell.keyboardFocus: root.launched ? WlrKeyboardFocus.None : WlrKeyboardFocus.OnDemand
 
+    // Focus loss is ignored for the first moments after opening: opening
+    // races the cursor warp below (a separate hyprctl process) and the
+    // surface's own map, and focus can bounce through the window under the
+    // cursor on the way in - which the focus-loss handler read as "user
+    // left" and closed the menu on start. (Not fixed by requesting
+    // Exclusive focus at first and dropping to OnDemand after - that closed
+    // it every time, apparently Hyprland handing focus away at the switch.)
+    property bool settled: false
+
+    Timer {
+        id: settleTimer
+        interval: 350
+        onTriggered: {
+            root.settled = true;
+            // Still unfocused once things settle - a real loss.
+            if (!contentItem.activeFocus)
+                focusLossTimer.restart();
+        }
+    }
+
+    // Focus loss closes the menu only if it's still lost a beat later, so a
+    // momentary blip can't.
+    Timer {
+        id: focusLossTimer
+        interval: 120
+        onTriggered: {
+            if (root.settled && !contentItem.activeFocus)
+                root.requestClose();
+        }
+    }
+
     // Set when a node/search result runs its command. Gives up keyboard
     // focus immediately instead of holding it through the close animation:
     // Hyprland won't move focus off a focused layer (misc:
@@ -339,8 +370,10 @@ PanelWindow {
         // else in this window claims it, which is exactly "focus left
         // keytree" in both senses.
         onActiveFocusChanged: {
-            if (!activeFocus)
-                root.requestClose();
+            if (activeFocus)
+                focusLossTimer.stop();
+            else
+                focusLossTimer.restart();
         }
 
         // Circular tint behind the content, lined up with BackgroundEffect
@@ -521,6 +554,7 @@ PanelWindow {
             String(Math.round(root.screen.x + root.screen.width / 2)),
             String(Math.round(root.screen.y + root.screen.height / 2))]);
         contentItem.forceActiveFocus();
+        settleTimer.start();
         // After the first frame's layout, so the nodes it aims at exist.
         Qt.callLater(root.openingSwirl);
     }
