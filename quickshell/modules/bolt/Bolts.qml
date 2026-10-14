@@ -20,7 +20,9 @@ Singleton {
     // flip it without editing BoltConfig.
     property bool enabled: BoltConfig.enabled
 
-    signal requested(var from, var to, string style)
+    // `path` (optional) is an explicit waypoint run ending at `to` - see
+    // strikePath.
+    signal requested(var from, var to, string style, var path)
 
     function active(trigger) {
         return root.enabled && (BoltConfig[trigger]?.enabled ?? false);
@@ -31,7 +33,14 @@ Singleton {
             return;
         if (from && Math.hypot(to.x - from.x, to.y - from.y) < 1)
             return;
-        root.requested(from, to, style in BoltConfig.styles ? style : "popup");
+        root.requested(from, to, style in BoltConfig.styles ? style : "popup", null);
+    }
+
+    // Bolt along explicit waypoints (global coords), e.g. a spiralPath.
+    function strikePath(path, style) {
+        if (!root.enabled || !path || path.length < 2)
+            return;
+        root.requested(null, path[path.length - 1], style in BoltConfig.styles ? style : "popup", path);
     }
 
     function screenByName(name) {
@@ -57,6 +66,21 @@ Singleton {
         const o = root.origin;
         root.origin = null;
         return o && Date.now() - o.time <= BoltConfig.originMaxAgeMs ? Qt.point(o.x, o.y) : null;
+    }
+
+    // ── Direct launches (bolt.exec binds) ────────────────────────────────────
+    // When the launch happened; the next window's open event carries where
+    // it came from, honoured only if that launch is recent enough.
+    property real launchTime: 0
+
+    // Small spiral settling onto the middle of rect r.
+    function launchSpiral(r) {
+        const cfg = BoltConfig.launch;
+        const radius = Math.min(cfg.spiralMaxPx, cfg.spiralRadius * Math.min(r.w, r.h));
+        const center = Qt.point(r.x + r.w / 2, r.y + r.h / 2);
+        const a = Math.random() * 2 * Math.PI;
+        const target = Qt.point(center.x + radius * Math.cos(a), center.y + radius * Math.sin(a));
+        root.strikePath(root.spiralPath(center, target, cfg.spiralTurns), "launchSwirl");
     }
 
     // ── Named anchors (BoltAnchor) ───────────────────────────────────────────
@@ -186,12 +210,32 @@ Singleton {
             const pts = root.facingPoints(root.rect(parts, 1), root.rect(parts, 5), BoltConfig.focus);
             if (pts)
                 root.strike(pts[0], pts[1], "focus");
+        } else if (parts[0] === "bolt:launch") {
+            root.launchTime = Date.now();
         } else if (parts[0] === "bolt:open" && parts.length >= 6) {
-            if (!root.active("open"))
-                return;
             const r = root.rect(parts, 1);
-            const cls = parts.slice(5).join(" ");
             if (r.w <= 0 || r.h <= 0)
+                return;
+            // bolt.lua: parts[5] = launch source ("x,y,w,h" / "spiral" / "-").
+            const src = parts[5];
+            const cls = parts.slice(6).join(" ");
+            const launched = src !== "-" && Date.now() - root.launchTime <= BoltConfig.launch.maxAgeMs;
+            if (launched) {
+                root.launchTime = 0;
+                if (!root.active("launch"))
+                    return;
+                if (src === "spiral") {
+                    if (BoltConfig.launch.spiral)
+                        root.launchSpiral(r);
+                } else if (BoltConfig.launch.fromWindow) {
+                    const n = src.split(",").map(Number);
+                    const pts = root.facingPoints({ x: n[0], y: n[1], w: n[2], h: n[3] }, r, BoltConfig.launch);
+                    if (pts)
+                        root.strike(pts[0], pts[1], "launch");
+                }
+                return;
+            }
+            if (!root.active("open"))
                 return;
             const app = BoltConfig.open.apps[cls];
             const origin = app || BoltConfig.open.allApps || BoltConfig.open.fromKeytree ? root.takeOrigin() : null;

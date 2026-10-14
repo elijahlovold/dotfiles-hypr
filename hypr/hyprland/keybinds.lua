@@ -207,20 +207,21 @@ hl.bind(mod .. " + Y", hl.dsp.exec_cmd("qs ipc call keytree toggle stator"))
 hl.bind(mod .. " + P", hl.dsp.exec_cmd("qs ipc call keytree toggle popups"))
 hl.bind(mod .. " + B", hl.dsp.exec_cmd("qs ipc call keybinds toggle"))
 
-hl.bind(mod .. " + Return", hl.dsp.exec_cmd(terminal))
-hl.bind(mod .. " + X", hl.dsp.exec_cmd("firefox"))
-hl.bind(mod .. " + ALT + X", hl.dsp.exec_cmd("firefox --private-window"))
-hl.bind(mod .. " + SHIFT + X", hl.dsp.exec_cmd("google-chrome"))
+-- App launchers: bolt.exec = hl.dsp.exec_cmd + a bolt from the focused
+-- window to the new one (or a small spiral on it if nothing had focus).
+hl.bind(mod .. " + Return", bolt.exec(terminal))
+hl.bind(mod .. " + X", bolt.exec("firefox"))
+hl.bind(mod .. " + ALT + X", bolt.exec("firefox --private-window"))
+hl.bind(mod .. " + SHIFT + X", bolt.exec("google-chrome"))
 hl.bind(mod .. " + O", bolt.focus({ last = true }))
 
-hl.bind(mod .. " + SHIFT + O", hl.dsp.exec_cmd("alacritty --working-directory $(mount.sh)"))
+hl.bind(mod .. " + SHIFT + O", bolt.exec("alacritty --working-directory $(mount.sh)"))
 
-hl.bind(mod .. " + I", hl.dsp.exec_cmd("kitty --working-directory ~/vault -e nvim"))
-hl.bind(mod .. " + SHIFT + I", hl.dsp.exec_cmd("kitty --working-directory ~/reposc/vault -e nvim"))
-hl.bind(mod .. " + T", hl.dsp.exec_cmd(terminal .. " --working-directory ~/vault -e nvim $(todays-notes)"))
-hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd(terminal .. [[ --working-directory ~/vault -e nvim $(todays-notes $(rofi -dmenu -i -p "Date delta"))]]))
+hl.bind(mod .. " + I", bolt.exec("kitty --working-directory ~/vault -e nvim"))
+hl.bind(mod .. " + SHIFT + I", bolt.exec("kitty --working-directory ~/reposc/vault -e nvim"))
+hl.bind(mod .. " + T", bolt.exec(terminal .. " --working-directory ~/vault -e nvim $(todays-notes)"))
 
-hl.bind(mod .. " + M", hl.dsp.exec_cmd(terminal .. " --class btop -e btop"))
+hl.bind(mod .. " + M", bolt.exec(terminal .. " --class btop -e btop"))
 
 hl.bind(mod .. " + ALT + Return", hl.dsp.exec_cmd("spotify-queue"), { release = true })
 
@@ -235,7 +236,7 @@ hl.bind(mod .. " + CTRL + SHIFT + C", hl.dsp.exec_cmd("wallpaper-picker --clear"
 -- Toggle dual monitors (DP-1 + DP-2) vs. solo third monitor (HDMI-A-1) - see toggle-monitors
 hl.bind(mod .. " + SHIFT + M", hl.dsp.exec_cmd("hypr-toggle-monitors"))
 
-hl.bind(mod .. " + U", hl.dsp.exec_cmd("firefox --new-window https://www.stevenspass.com/the-mountain/mountain-conditions/mountain-cams.aspx"))
+hl.bind(mod .. " + U", bolt.exec("firefox --new-window https://www.stevenspass.com/the-mountain/mountain-conditions/mountain-cams.aspx"))
 hl.bind(mod .. " + SHIFT + U", hl.dsp.exec_cmd("wallpaper-picker --sp"))
 
 hl.bind(mod .. " + SHIFT + P", hl.dsp.exec_cmd("rofimoji"))

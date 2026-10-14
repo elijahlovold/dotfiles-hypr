@@ -19,12 +19,13 @@ Scope {
 
             Connections {
                 target: Bolts
-                function onRequested(from, to, style) {
+                function onRequested(from, to, style, path) {
                     const s = perScreen.modelData;
                     if (to.x < s.x || to.x >= s.x + s.width || to.y < s.y || to.y >= s.y + s.height)
                         return;
                     const spec = {
                         from: from ? Qt.point(from.x - s.x, from.y - s.y) : null,
+                        path: path ? path.map(p => Qt.point(p.x - s.x, p.y - s.y)) : null,
                         to: Qt.point(to.x - s.x, to.y - s.y),
                         style: BoltConfig.styles[style]
                     };

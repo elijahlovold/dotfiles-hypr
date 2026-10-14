@@ -12,6 +12,9 @@ import Quickshell
 //   focus  - Super+hjkl/arrows/Tab/O focus moves. The Hyprland Lua bind
 //            (hypr/hyprland/bolt.lua) sends both windows' geometry as a
 //            custom socket2 event, so no process is spawned per keypress.
+//   launch - apps opened by a bolt.exec keybind (Super+Return, X, ...):
+//            from the window that had focus to the new one, or a small
+//            spiral on the new window if nothing had focus.
 //   open   - new windows (Hyprland's window.open, same Lua route). Only the
 //            classes in `open.apps` unless `open.allApps` is set.
 Singleton {
@@ -63,6 +66,23 @@ Singleton {
         back: true         // going back up: a random node -> center
     })
 
+    readonly property var launch: ({
+        enabled: true,
+        fromWindow: true,  // focused window -> new window
+        spiral: true,      // nothing focused: spiral on the new window
+        // Bolt endpoints, placed like focus jumps.
+        maxInset: 0.125,
+        edgeBias: 2,
+        maxSlope: 1.0,
+        // Spiral size: spiralRadius x the window's smaller side, capped.
+        spiralRadius: 0.15,
+        spiralMaxPx: 120,
+        spiralTurns: 1.5,
+        // A launch whose window takes longer than this to appear (slow
+        // starts, a rofi prompt first) gets the normal `open` handling.
+        maxAgeMs: 4000
+    })
+
     readonly property var open: ({
         enabled: true,
         allApps: false,
@@ -105,6 +125,8 @@ Singleton {
         popup: { totalMs: 320, travelMs: 90, levels: 6, spread: 0.16, forks: [2, 3], width: 1.0, opacity: 1.0, flash: 40 },
         focus: { totalMs: 190, travelMs: 60, levels: 4, spread: 0.12, spreadJitter: 0.5, forks: [0, 1], width: 0.55, opacity: 0.75, flash: 14 },
         open:  { totalMs: 360, travelMs: 110, levels: 6, spread: 0.14, forks: [1, 3], width: 0.8, opacity: 0.9, flash: 56 },
+        launch: { totalMs: 260, travelMs: 80, levels: 5, spread: 0.13, spreadJitter: 0.5, forks: [0, 2], width: 0.65, opacity: 0.85, flash: 30 },
+        launchSwirl: { totalMs: 420, travelMs: 300, levels: 2, spread: 0.45, spreadJitter: 0.3, forks: [0, 0], width: 0.55, opacity: 0.85, flash: 24, tail: 0.3 },
         swirl: { totalMs: 520, travelMs: 380, levels: 2, spread: 0.45, spreadJitter: 0.3, forks: [0, 0], width: 0.7, opacity: 0.9, flash: 34, tail: 0.3 },
         desktop: { totalMs: 340, travelMs: 100, levels: 6, spread: 0.15, forks: [1, 3], width: 0.85, opacity: 0.95, flash: 60 },
         picker: { totalMs: 190, travelMs: 60, levels: 4, spread: 0.12, spreadJitter: 0.5, forks: [0, 1], width: 0.55, opacity: 0.85, flash: 14 },

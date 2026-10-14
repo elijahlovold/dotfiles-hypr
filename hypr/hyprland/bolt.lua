@@ -53,12 +53,48 @@ function M.focus(spec)
     end
 end
 
+-- Drop-in for hl.dsp.exec_cmd(cmd) in binds that open an app: remembers
+-- which window had focus (none = nothing focused), so the window that opens
+-- next can be struck from it - or get a small spiral if there was no source.
+local pending = nil
+
+function M.exec(cmd)
+    return function()
+        pcall(function()
+            local w = hl.get_active_window()
+            pending = { address = w and w.address or false }
+            emit("launch")
+        end)
+        hl.dispatch(hl.dsp.exec_cmd(cmd))
+    end
+end
+
+local function find_window(address)
+    for _, w in ipairs(hl.get_windows()) do
+        if w.address == address then
+            return w
+        end
+    end
+    return nil
+end
+
+-- `bolt:open x y w h <src> <class>` - src is the launching window's current
+-- geometry as "x,y,w,h", "spiral" (launched with nothing focused) or "-"
+-- (not opened via M.exec). Quickshell drops a src whose launch is too old.
 hl.on("window.open", function(w)
     pcall(function()
         local g = geom(w)
-        if g then
-            emit("open " .. g .. " " .. (w.class or ""))
+        if not g then
+            return
         end
+        local src = "-"
+        if pending then
+            local from = pending.address and find_window(pending.address)
+            local fg = from and from.address ~= w.address and geom(from)
+            src = fg and fg:gsub(" ", ",") or "spiral"
+            pending = nil
+        end
+        emit("open " .. g .. " " .. src .. " " .. (w.class or ""))
     end)
 end)
 
