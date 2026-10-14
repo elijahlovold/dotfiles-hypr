@@ -323,15 +323,6 @@ PanelWindow {
                     model: root.images
                     currentIndex: root.currentIndex
 
-                    // Declared children of a Flickable land in its contentItem,
-                    // so this shares the delegates' (scrolling) coordinates.
-                    BoltItem {
-                        id: pickerBolt
-                        z: 1
-                        width: grid.width
-                        height: Math.max(grid.height, grid.contentHeight)
-                    }
-
                     delegate: Item {
                         id: tile
                         required property var modelData
@@ -387,6 +378,25 @@ PanelWindow {
                                 root.selectIndex(tile.index);
                             }
                         }
+                    }
+                }
+
+                // Bolt layer over the grid, clipped like it and moved with its
+                // scrolling contentItem, so bolt points share the delegates'
+                // content coordinates (see root.tileRect). Not a child of the
+                // GridView - it keeps declared children on the view itself,
+                // not in contentItem, even with an explicit parent.
+                Item {
+                    anchors.fill: grid
+                    clip: true
+                    z: 1
+
+                    BoltItem {
+                        id: pickerBolt
+                        x: grid.contentItem.x
+                        y: grid.contentItem.y
+                        width: grid.width
+                        height: Math.max(grid.height, grid.contentHeight)
                     }
                 }
             }
