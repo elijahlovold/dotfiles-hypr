@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.modules.theme
+import qs.modules.bolt
 
 // Grid-tile wallpaper picker, replacing an nsxiv-based flow. Directory
 // listing via FolderListModel (native, no subprocess). Thumbnails are
@@ -66,6 +67,30 @@ PanelWindow {
     property var images: []
     property int currentIndex: 0
 
+    // ── Lightning between selections (modules/bolt, BoltConfig.picker) ───────
+    // Same edge-to-edge jump as window focus moves (Bolts.facingPoints), in
+    // the grid's content coordinates - so it scrolls along with the view.
+    property int lastIndex: 0
+
+    function tileRect(i) {
+        return {
+            x: (i % root.columns) * root.cellW + 5,
+            y: Math.floor(i / root.columns) * root.cellH + 5,
+            w: ImagePickerConfig.tileSize,
+            h: ImagePickerConfig.tileSize
+        };
+    }
+
+    onCurrentIndexChanged: {
+        const from = root.lastIndex;
+        root.lastIndex = root.currentIndex;
+        if (from < 0 || from >= root.images.length || from === root.currentIndex || !Bolts.active("picker"))
+            return;
+        const pts = Bolts.facingPoints(root.tileRect(from), root.tileRect(root.currentIndex), BoltConfig.picker);
+        if (pts)
+            pickerBolt.strike({ from: pts[0], to: pts[1], style: BoltConfig.styles.picker });
+    }
+
     function rebuildImages() {
         const list = [];
         for (let i = 0; i < folderModel.count; i++) {
@@ -79,7 +104,11 @@ PanelWindow {
             });
         }
         root.images = list;
+        // -1 while resetting so the reset itself doesn't strike; then 0, as
+        // the change handler doesn't run when currentIndex was already 0.
+        root.lastIndex = -1;
         root.currentIndex = 0;
+        root.lastIndex = 0;
         root.startThumbnailGeneration();
     }
 
@@ -293,6 +322,15 @@ PanelWindow {
                     clip: true
                     model: root.images
                     currentIndex: root.currentIndex
+
+                    // Declared children of a Flickable land in its contentItem,
+                    // so this shares the delegates' (scrolling) coordinates.
+                    BoltItem {
+                        id: pickerBolt
+                        z: 1
+                        width: grid.width
+                        height: Math.max(grid.height, grid.contentHeight)
+                    }
 
                     delegate: Item {
                         id: tile
