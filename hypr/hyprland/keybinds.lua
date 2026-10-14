@@ -7,7 +7,24 @@ local mod = "SUPER"
 hl.bind(mod .. " + Q", hl.dsp.window.close())
 
 hl.bind(mod .. " + CTRL + SHIFT + E", hl.dsp.exit())
-hl.bind(mod .. " + Space", hl.dsp.window.cycle_next())
+-- i3: mod+space "focus mode_toggle" - jump between the floating and tiled
+-- layers of the current workspace, landing on whichever window of the other
+-- layer was focused most recently (lowest focus_history_id).
+hl.bind(mod .. " + Space", function()
+    local active = hl.get_active_window()
+    if not active or not active.workspace then
+        return
+    end
+    local target
+    for _, w in ipairs(hl.get_windows({ workspace = active.workspace, floating = not active.floating, mapped = true })) do
+        if not w.hidden and (not target or w.focus_history_id < target.focus_history_id) then
+            target = w
+        end
+    end
+    if target then
+        bolt.focus({ window = target })()
+    end
+end)
 hl.bind(mod .. " + SHIFT + Space", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen({ action = "toggle" }))
 
