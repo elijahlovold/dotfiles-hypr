@@ -11,13 +11,26 @@ Scope {
 
     property string activeConfig: ""
 
+    // A window still playing its close animation counts as closed - so a
+    // quick reopen replaces it rather than toggling it shut.
+    readonly property bool isOpen: root.activeConfig.length > 0 && !(windowLoader.item?.closing ?? false)
+
     function toggle(config) {
         const name = config && config.length > 0 ? config : "default";
-        root.activeConfig = root.activeConfig === name ? "" : name;
+        if (root.isOpen && root.activeConfig === name)
+            root.close();
+        else
+            root.open(name);
     }
 
     function open(config) {
-        root.activeConfig = config && config.length > 0 ? config : "default";
+        const name = config && config.length > 0 ? config : "default";
+        if (root.isOpen && root.activeConfig === name)
+            return;
+        // Drop whatever's there first (a closing window, or another
+        // config's) so the Loader builds a fresh window at the root level.
+        root.activeConfig = "";
+        root.activeConfig = name;
     }
 
     function close() {
@@ -39,10 +52,17 @@ Scope {
     }
 
     Loader {
+        id: windowLoader
         active: root.activeConfig.length > 0
         sourceComponent: KeytreeWindow {
+            id: win
             configName: root.activeConfig
-            onDismissed: root.close()
+            // Ignore a late dismiss from a window that's already been
+            // replaced (its close timer can outlive the swap).
+            onDismissed: {
+                if (windowLoader.item === win)
+                    root.close();
+            }
         }
     }
 }

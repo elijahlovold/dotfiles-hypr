@@ -279,8 +279,7 @@ PanelWindow {
         // Derived from Theme.groupBg's own RGB (own alpha discarded, tint
         // alpha set here instead) rather than a dedicated Theme property -
         // groupBg is a plain QML binding computed from the wallust palette,
-        // not itself wallust-templated, so this stays safe across regens
-        // without needing its own entry in modules/common/theme.qml.template.
+        // so it follows palette changes without a palette entry of its own.
         //
         // A radial gradient (center -> fully transparent edge) painted via
         // Canvas rather than Rectangle.gradient, which in QtQuick is
