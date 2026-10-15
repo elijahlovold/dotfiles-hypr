@@ -1,0 +1,99 @@
+#!/bin/sh
+# Hyprland screen shader switcher (decoration:screen_shader), for the
+# Super+P keytree's Shaders/ menu. Shaders live in hypr/shaders/ (generated
+# from ghostty-shaders/ by hypr-shader-port).
+#
+#   hypr-shader NAME      turn NAME on, or off if it's already on
+#   hypr-shader off
+#   hypr-shader status    current shader name, or "off"
+#   hypr-shader list
+#
+# Damage tracking (debug:damage_tracking) is set per shader:
+#   static   -> 1 (monitor): any change redraws the whole monitor. Partial
+#               redraws (2, the default) break shaders that read other
+#               pixels than the one they write - CRT curvature, bloom - and
+#               they flicker as stale regions alternate between buffers.
+#   animated -> 0 (none): needed for Hyprland's `time` uniform to update,
+#               plus debug:vfr off - otherwise Hyprland only renders a
+#               frame when something changes, and the animation only moves
+#               when the mouse does. Together: the whole monitor is redrawn
+#               every refresh while one is on.
+#   off      -> 2 again, vfr back on.
+#
+# Changes are made at runtime with `hyprctl eval`, so a config reload
+# (Super+Shift+R) also turns the shader off; the state file is just what
+# this script last set.
+
+set -u
+
+shader_dir=$(dirname -- "$(realpath -- "$0")")/../hypr/shaders
+shader_dir=$(realpath -- "$shader_dir")
+state=${XDG_RUNTIME_DIR:-/tmp}/hypr-shader.state
+
+die() {
+    printf '%s\n' "hypr-shader: $*" >&2
+    exit 1
+}
+
+notify() {
+    notify-send -a Hyprland -u low -t 1500 "Screen shader" "$1" >/dev/null 2>&1 || true
+}
+
+current() {
+    [ -f "$state" ] && cat "$state" || echo off
+}
+
+# $1 = shader path ("" = none), $2 = damage tracking mode, $3 = vfr
+apply() {
+    hyprctl eval "hl.config({ decoration = { screen_shader = \"$1\" }, debug = { damage_tracking = $2, vfr = $3 } })" >/dev/null ||
+        die "hyprctl eval failed"
+}
+
+off() {
+    apply "" 2 true
+    rm -f "$state"
+    notify "Off"
+}
+
+on() {
+    name=$1
+    file="$shader_dir/$name.frag"
+    [ -f "$file" ] || die "no shader '$name' in $shader_dir (try: hypr-shader list)"
+    if grep -q '^// animated: yes' "$file"; then
+        apply "$file" 0 false
+        notify "$name (animated - full redraw every frame)"
+    else
+        apply "$file" 1 true
+        notify "$name"
+    fi
+    printf '%s\n' "$name" >"$state"
+}
+
+case ${1:-} in
+    "" | -h | --help)
+        sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
+        ;;
+    status)
+        current
+        ;;
+    list)
+        for f in "$shader_dir"/*.frag; do
+            n=$(basename "$f" .frag)
+            if grep -q '^// animated: yes' "$f"; then
+                printf '%s\tanimated\n' "$n"
+            else
+                printf '%s\tstatic\n' "$n"
+            fi
+        done
+        ;;
+    off)
+        off
+        ;;
+    *)
+        if [ "$(current)" = "$1" ]; then
+            off
+        else
+            on "$1"
+        fi
+        ;;
+esac

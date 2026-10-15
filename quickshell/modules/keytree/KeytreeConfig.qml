@@ -177,6 +177,28 @@ Singleton {
         "n": { icon: "\uf0f3  ", label: "Notifications", cmd: "qs ipc call barpopup open notifications" },
         "b": { icon: "\uf02f  ", label: "Bambu", cmd: "qs ipc call barpopup open bambu" },
         "y": { icon: "\u{f11ef}  ", label: "Stator", cmd: "qs ipc call barpopup open stator" },
+        // Hyprland screen shaders (scripts/hypr-shader, hypr/shaders/).
+        // Picking the active one again turns it off; ▶ = animated, which
+        // redraws the whole monitor every frame while it's on.
+        "f": {
+          label: "Shaders/",
+          icon: "\uf0d0  ",
+          children: {
+            "o": { icon: "\uf011  ", label: "Off",          cmd: "hypr-shader off" },
+            "n": { icon: "\uf042  ", label: "Negative",     cmd: "hypr-shader negative" },
+            "t": { icon: "\uf26c  ", label: "TFT",          cmd: "hypr-shader tft" },
+            "r": { icon: "\uf120  ", label: "Retro",        cmd: "hypr-shader retro-terminal" },
+            "c": { icon: "\uf108  ", label: "CRT",          cmd: "hypr-shader crt" },
+            "b": { icon: "\uf108  ", label: "Better CRT",   cmd: "hypr-shader bettercrt" },
+            "d": { icon: "\uf00a  ", label: "Dither",       cmd: "hypr-shader dither" },
+            "l": { icon: "\uf0eb  ", label: "Bloom",        cmd: "hypr-shader bloom" },
+            "g": { icon: "\uf0e7  ", label: "Glitch ▶",     cmd: "hypr-shader glitchy" },
+            "w": { icon: "\uf043  ", label: "Water ▶",      cmd: "hypr-shader water" },
+            "z": { icon: "\uf021  ", label: "Drunk ▶",      cmd: "hypr-shader drunkard" },
+            "i": { icon: "\uf11b  ", label: "Arcade CRT ▶", cmd: "hypr-shader in-game-crt" },
+            "s": { icon: "\uf2dc  ", label: "Snow ▶",       cmd: "hypr-shader just-snow" },
+          }
+        },
       },
       "stator": {
         "b": { icon: "󱎫  ", label: "Break",      cmd: "stator-rs --set-state break" },

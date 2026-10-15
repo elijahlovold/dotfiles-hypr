@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import qs.modules.theme
 import qs.modules.bolt
 import qs.modules.common
@@ -102,13 +103,35 @@ PanelWindow {
         }
     }
 
-    // Focus loss closes the menu only if it's still lost a beat later, so a
-    // momentary blip can't.
+    // Hyprland's menu focus grab: while active, keyboard focus stays on
+    // this surface whatever else maps, refocuses or changes config (e.g.
+    // hypr-shader's runtime `hyprctl eval` landing while the menu opens),
+    // and a click outside clears it - that's what closes the menu now.
+    // Released the moment the menu starts closing or launches something,
+    // so the launched app can take focus when it maps.
+    HyprlandFocusGrab {
+        id: focusGrab
+        windows: [root]
+        active: !root.launched && !root.closing
+        onCleared: {
+            if (!root.launched && !root.closing)
+                root.requestClose();
+        }
+    }
+
+    // Fallback for when the grab isn't holding (not granted, or released):
+    // focus loss closes the menu only if it's still lost a beat later, so a
+    // momentary blip can't. Under the grab a loss can only be focus moving
+    // between items inside this window, so it's reclaimed instead.
     Timer {
         id: focusLossTimer
         interval: 120
         onTriggered: {
-            if (root.settled && !contentItem.activeFocus)
+            if (!root.settled || contentItem.activeFocus)
+                return;
+            if (focusGrab.active)
+                contentItem.forceActiveFocus();
+            else
                 root.requestClose();
         }
     }
