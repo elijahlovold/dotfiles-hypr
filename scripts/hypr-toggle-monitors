@@ -71,6 +71,7 @@ to_solo() {
 
 if [ "$1" = "--reset" ]; then
     to_dual
+    command -v hypr-shader >/dev/null && hypr-shader refresh
     exit 0
 fi
 
@@ -79,3 +80,7 @@ if is_active "$SOLO"; then
 else
     to_solo
 fi
+
+# Monitor ids/rotations changed - rebuild the screen shader's per-monitor
+# rotation table (no-op if none is on).
+command -v hypr-shader >/dev/null && hypr-shader refresh

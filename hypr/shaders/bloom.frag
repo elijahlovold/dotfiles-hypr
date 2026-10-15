@@ -11,17 +11,51 @@ layout(location = 0) out vec4 hyprFragColor;
 
 #define iChannel0 tex
 #define iTime time
-#define iResolution vec3(vec2(textureSize(tex, 0)), 1.0)
+#define iResolution vec3(hyprLogicalSize(), 1.0)
 #define iTimeDelta (1.0 / 60.0)
 #define iFrame int(time * 60.0)
 #define iMouse vec4(0.0)
 
-// Hyprland's v_texcoord runs top-down; Shadertoy code expects fragCoord and
-// texture lookups bottom-up. Flip both so the two flips cancel for sampling
-// and directional effects (snow falling, scanline drift) point the right way.
-vec2 hyprFlip(vec2 p) { return vec2(p.x, 1.0 - p.y); }
-#define texture(s, p) texture(s, hyprFlip(p))
-#define textureLod(s, p, l) textureLod(s, hyprFlip(p), l)
+// Coordinates. Hyprland hands the screen shader the monitor's raw buffer
+// (v_texcoord top-down, before the monitor's rotation), while Shadertoy
+// code works bottom-up in the screen as you see it. So fragCoord is mapped
+// into that upright, bottom-up space and every texture lookup back again.
+//
+// Which rotation applies depends on the monitor being drawn (`wl_output` =
+// its id, as in `hyprctl monitors`); hypr-shader fills in hyprTransform()
+// from the live monitor list when it applies the shader. Unfilled (e.g.
+// loading this file directly), every monitor is treated as unrotated.
+uniform int wl_output;
+int hyprTransform() {
+    // @transforms@
+    return 0;
+}
+
+// Upright top-down -> raw buffer, per wl_output transform 0-3 (90/180/270;
+// 90 and 270 matched to how Hyprland actually rotates, checked on DP-1).
+vec2 hyprToRaw(vec2 l) {
+    int t = hyprTransform();
+    if (t == 3) return vec2(1.0 - l.y, l.x);
+    if (t == 2) return 1.0 - l;
+    if (t == 1) return vec2(l.y, 1.0 - l.x);
+    return l;
+}
+vec2 hyprToUpright(vec2 n) {
+    int t = hyprTransform();
+    if (t == 3) return vec2(n.y, 1.0 - n.x);
+    if (t == 2) return 1.0 - n;
+    if (t == 1) return vec2(1.0 - n.y, n.x);
+    return n;
+}
+vec2 hyprLogicalSize() {
+    vec2 s = vec2(textureSize(tex, 0));
+    int t = hyprTransform();
+    return (t == 1 || t == 3) ? s.yx : s;
+}
+// Shadertoy uv (bottom-up, upright) -> raw buffer texcoord.
+vec2 hyprSample(vec2 p) { return hyprToRaw(vec2(p.x, 1.0 - p.y)); }
+#define texture(s, p) texture(s, hyprSample(p))
+#define textureLod(s, p, l) textureLod(s, hyprSample(p), l)
 
 #line 1
 // source: https://gist.github.com/qwerasd205/c3da6c610c8ffe17d6d2d3cc7068f17f
@@ -78,6 +112,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 }
 void main() {
     vec4 c = vec4(0.0);
-    mainImage(c, hyprFlip(v_texcoord) * iResolution.xy);
+    vec2 up = hyprToUpright(v_texcoord);
+    mainImage(c, vec2(up.x, 1.0 - up.y) * iResolution.xy);
     hyprFragColor = vec4(c.rgb, 1.0);
 }

@@ -7,6 +7,7 @@
 #   hypr-shader off
 #   hypr-shader status    current shader name, or "off"
 #   hypr-shader list
+#   hypr-shader refresh   re-apply the current shader (after monitors change)
 #
 # Damage tracking (debug:damage_tracking) is set per shader:
 #   static   -> 1 (monitor): any change redraws the whole monitor. Partial
@@ -20,6 +21,13 @@
 #               every refresh while one is on.
 #   off      -> 2 again, vfr back on.
 #
+# Rotated monitors: the shader sees each monitor's raw, unrotated buffer.
+# The copy actually loaded ($XDG_RUNTIME_DIR/hypr-shader/NAME.frag) gets
+# every monitor's rotation baked in, keyed by monitor id - the shader's
+# hyprTransform() - so effects point the same way on all of them. Ids and
+# rotations come from `hyprctl monitors` at apply time, so a monitor change
+# needs `hypr-shader refresh` (hypr-toggle-monitors runs it).
+#
 # Changes are made at runtime with `hyprctl eval`, so a config reload
 # (Super+Shift+R) also turns the shader off; the state file is just what
 # this script last set.
@@ -29,6 +37,7 @@ set -u
 shader_dir=$(dirname -- "$(realpath -- "$0")")/../hypr/shaders
 shader_dir=$(realpath -- "$shader_dir")
 state=${XDG_RUNTIME_DIR:-/tmp}/hypr-shader.state
+build_dir=${XDG_RUNTIME_DIR:-/tmp}/hypr-shader
 
 die() {
     printf '%s\n' "hypr-shader: $*" >&2
@@ -36,6 +45,7 @@ die() {
 }
 
 notify() {
+    [ "${quiet:-}" = 1 ] && return
     notify-send -a Hyprland -u low -t 1500 "Screen shader" "$1" >/dev/null 2>&1 || true
 }
 
@@ -55,11 +65,26 @@ off() {
     notify "Off"
 }
 
+# Copy of shader $1 with each monitor's transform filled into the
+# `// @transforms@` slot (only rotations 0-3; flipped transforms count as
+# their rotation). Prints the copy's path.
+build() {
+    mkdir -p "$build_dir" || die "can't create $build_dir"
+    cases=$(hyprctl monitors -j | jq -r '.[] | "    if (wl_output == \(.id)) return \(.transform % 4);"') ||
+        die "couldn't read monitors"
+    out="$build_dir/$1.frag"
+    awk -v cases="$cases" '$0 == "    // @transforms@" { print cases; next } { print }' "$2" >"$out" ||
+        die "couldn't write $out"
+    printf '%s\n' "$out"
+}
+
 on() {
     name=$1
-    file="$shader_dir/$name.frag"
-    [ -f "$file" ] || die "no shader '$name' in $shader_dir (try: hypr-shader list)"
-    if grep -q '^// animated: yes' "$file"; then
+    [ "${2:-}" = quiet ] && quiet=1
+    src="$shader_dir/$name.frag"
+    [ -f "$src" ] || die "no shader '$name' in $shader_dir (try: hypr-shader list)"
+    file=$(build "$name" "$src") || exit 1
+    if grep -q '^// animated: yes' "$src"; then
         apply "$file" 0 false
         notify "$name (animated - full redraw every frame)"
     else
@@ -88,6 +113,10 @@ case ${1:-} in
         ;;
     off)
         off
+        ;;
+    refresh)
+        name=$(current)
+        [ "$name" = off ] || on "$name" quiet
         ;;
     *)
         if [ "$(current)" = "$1" ]; then
