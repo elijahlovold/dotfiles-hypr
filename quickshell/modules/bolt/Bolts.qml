@@ -83,6 +83,16 @@ Singleton {
         root.strikePath(root.spiralPath(center, target, cfg.spiralTurns), "launchSwirl");
     }
 
+    // ── Find the cursor (Super+Ctrl) ────────────────────────────────────────
+    // A spiral from out at `radius` winding in onto the cursor - the
+    // keytree's outward spiral, reversed.
+    function cursorSpiral(p) {
+        const cfg = BoltConfig.cursor;
+        const a = Math.random() * 2 * Math.PI;
+        const outer = Qt.point(p.x + cfg.radius * Math.cos(a), p.y + cfg.radius * Math.sin(a));
+        root.strikePath(root.spiralPath(p, outer, cfg.turns).reverse(), "cursor");
+    }
+
     // ── Named anchors (BoltAnchor) ───────────────────────────────────────────
     property var anchorItems: []
 
@@ -210,6 +220,9 @@ Singleton {
             const pts = root.facingPoints(root.rect(parts, 1), root.rect(parts, 5), BoltConfig.focus);
             if (pts)
                 root.strike(pts[0], pts[1], "focus");
+        } else if (parts[0] === "bolt:cursor" && parts.length >= 3) {
+            if (root.active("cursor"))
+                root.cursorSpiral(Qt.point(Number(parts[1]), Number(parts[2])));
         } else if (parts[0] === "bolt:launch") {
             root.launchTime = Date.now();
         } else if (parts[0] === "bolt:open" && parts.length >= 6) {

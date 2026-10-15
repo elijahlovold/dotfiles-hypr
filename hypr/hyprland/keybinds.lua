@@ -47,6 +47,14 @@ hl.bind(mod .. " + Left",  bolt.focus({ direction = "l" }))
 hl.bind(mod .. " + Right", bolt.focus({ direction = "r" }))
 hl.bind(mod .. " + O", bolt.focus({ last = true }))
 
+-- Super+Ctrl: bolt onto the cursor to find it (hyprland/bolt.lua). On
+-- release of whichever of the two goes first (both mods are still held at
+-- that point), so it doesn't fire on the way into Super+Ctrl+<key> chords -
+-- release binds only fire when nothing else was pressed in between.
+for _, key in ipairs({ "Control_L", "Control_R", "Super_L", "Super_R" }) do
+    hl.bind("SUPER + CTRL + " .. key, bolt.find_cursor, { release = true, non_consuming = true })
+end
+
 -- Scrolling layout
 hl.bind(mod .. " + period", hl.dsp.layout("swapcol r"))
 hl.bind(mod .. " + comma", hl.dsp.layout("swapcol l"))

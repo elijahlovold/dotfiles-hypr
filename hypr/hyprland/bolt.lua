@@ -98,4 +98,15 @@ hl.on("window.open", function(w)
     end)
 end)
 
+-- Super+Ctrl tapped on their own - like Windows' "show pointer location":
+-- quickshell draws a bolt spiralling in onto the cursor (keybinds.lua).
+function M.find_cursor()
+    pcall(function()
+        local p = hl.get_cursor_pos()
+        if p then
+            emit(string.format("cursor %d %d", math.floor(p.x + 0.5), math.floor(p.y + 0.5)))
+        end
+    end)
+end
+
 return M

@@ -15,6 +15,8 @@ import Quickshell
 //   launch - apps opened by a bolt.exec keybind (Super+Return, X, ...):
 //            from the window that had focus to the new one, or a small
 //            spiral on the new window if nothing had focus.
+//   cursor - Super+Ctrl: a spiral winding in onto the mouse cursor, to
+//            find it (Super+Ctrl bind in hypr/hyprland/keybinds.lua).
 //   open   - new windows (Hyprland's window.open, same Lua route). Only the
 //            classes in `open.apps` unless `open.allApps` is set.
 Singleton {
@@ -83,6 +85,12 @@ Singleton {
         maxAgeMs: 4000
     })
 
+    readonly property var cursor: ({
+        enabled: true,
+        radius: 160,   // px the spiral starts out at
+        turns: 1.25
+    })
+
     readonly property var open: ({
         enabled: true,
         allApps: false,
@@ -127,6 +135,7 @@ Singleton {
         open:  { totalMs: 360, travelMs: 110, levels: 6, spread: 0.14, forks: [1, 3], width: 0.8, opacity: 0.9, flash: 56 },
         launch: { totalMs: 260, travelMs: 80, levels: 5, spread: 0.13, spreadJitter: 0.5, forks: [0, 2], width: 0.65, opacity: 0.85, flash: 30 },
         launchSwirl: { totalMs: 420, travelMs: 300, levels: 2, spread: 0.45, spreadJitter: 0.3, forks: [0, 0], width: 0.55, opacity: 0.85, flash: 24, tail: 0.3 },
+        cursor: { totalMs: 560, travelMs: 380, levels: 2, spread: 0.45, spreadJitter: 0.3, forks: [0, 0], width: 0.75, opacity: 0.95, flash: 48, tail: 0.35 },
         swirl: { totalMs: 520, travelMs: 380, levels: 2, spread: 0.45, spreadJitter: 0.3, forks: [0, 0], width: 0.7, opacity: 0.9, flash: 34, tail: 0.3 },
         desktop: { totalMs: 340, travelMs: 100, levels: 6, spread: 0.15, forks: [1, 3], width: 0.85, opacity: 0.95, flash: 60 },
         picker: { totalMs: 190, travelMs: 60, levels: 4, spread: 0.12, spreadJitter: 0.5, forks: [0, 1], width: 0.55, opacity: 0.85, flash: 14 },
