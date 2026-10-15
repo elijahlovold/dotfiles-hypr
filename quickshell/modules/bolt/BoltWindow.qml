@@ -15,8 +15,20 @@ PanelWindow {
 
     signal finished
 
+    // A strike or a Super+Ctrl drawing still on screen - Bolt.qml keeps
+    // the window until neither is.
+    readonly property bool busy: bolt.striking || trail.busy
+
     function strike(spec) {
         bolt.strike(spec);
+    }
+
+    function drawPoint(p) {
+        trail.addPoint(p);
+    }
+
+    function drawEnd() {
+        trail.end();
     }
 
     WlrLayershell.layer: WlrLayer.Overlay
@@ -33,6 +45,12 @@ PanelWindow {
 
     BoltItem {
         id: bolt
+        anchors.fill: parent
+        onFinished: root.finished()
+    }
+
+    BoltTrail {
+        id: trail
         anchors.fill: parent
         onFinished: root.finished()
     }

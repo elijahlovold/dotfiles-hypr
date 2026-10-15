@@ -42,22 +42,7 @@ Item {
     property real strength: 1
 
     function displace(x0, y0, x1, y1, levels, spread) {
-        let pts = [{ x: x0, y: y0 }, { x: x1, y: y1 }];
-        let d = spread;
-        for (let l = 0; l < levels; l++) {
-            const next = [pts[0]];
-            for (let i = 1; i < pts.length; i++) {
-                const a = pts[i - 1], b = pts[i];
-                const dx = b.x - a.x, dy = b.y - a.y;
-                const len = Math.hypot(dx, dy) || 1;
-                const off = (Math.random() * 2 - 1) * d;
-                next.push({ x: (a.x + b.x) / 2 - dy / len * off, y: (a.y + b.y) / 2 + dx / len * off });
-                next.push(b);
-            }
-            pts = next;
-            d *= 0.55;
-        }
-        return pts;
+        return Bolts.displace(x0, y0, x1, y1, levels, spread);
     }
 
     function strike(spec) {

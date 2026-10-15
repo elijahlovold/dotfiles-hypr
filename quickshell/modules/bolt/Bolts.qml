@@ -23,6 +23,9 @@ Singleton {
     // `path` (optional) is an explicit waypoint run ending at `to` - see
     // strikePath.
     signal requested(var from, var to, string style, var path)
+    // Super+Ctrl+drag (bolt.lua): live cursor samples, then the end.
+    signal drawPoint(var p)
+    signal drawEnded
 
     function active(trigger) {
         return root.enabled && (BoltConfig[trigger]?.enabled ?? false);
@@ -154,6 +157,28 @@ Singleton {
         return hi - lo >= 40 ? [lo + pad, hi - pad] : null;
     }
 
+    // Midpoint displacement from (x0, y0) to (x1, y1): each segment's
+    // midpoint pushed sideways by up to `spread`, shrinking every level.
+    // Shared by BoltItem and BoltTrail.
+    function displace(x0, y0, x1, y1, levels, spread) {
+        let pts = [{ x: x0, y: y0 }, { x: x1, y: y1 }];
+        let d = spread;
+        for (let l = 0; l < levels; l++) {
+            const next = [pts[0]];
+            for (let i = 1; i < pts.length; i++) {
+                const a = pts[i - 1], b = pts[i];
+                const dx = b.x - a.x, dy = b.y - a.y;
+                const len = Math.hypot(dx, dy) || 1;
+                const off = (Math.random() * 2 - 1) * d;
+                next.push({ x: (a.x + b.x) / 2 - dy / len * off, y: (a.y + b.y) / 2 + dx / len * off });
+                next.push(b);
+            }
+            pts = next;
+            d *= 0.55;
+        }
+        return pts;
+    }
+
     function rand(lo, hi) {
         return lo + (hi - lo) * Math.random();
     }
@@ -223,6 +248,11 @@ Singleton {
         } else if (parts[0] === "bolt:cursor" && parts.length >= 3) {
             if (root.active("cursor"))
                 root.cursorSpiral(Qt.point(Number(parts[1]), Number(parts[2])));
+        } else if (parts[0] === "bolt:draw" && parts.length >= 3) {
+            if (root.active("draw"))
+                root.drawPoint(Qt.point(Number(parts[1]), Number(parts[2])));
+        } else if (parts[0] === "bolt:drawend") {
+            root.drawEnded();
         } else if (parts[0] === "bolt:launch") {
             root.launchTime = Date.now();
         } else if (parts[0] === "bolt:open" && parts.length >= 6) {

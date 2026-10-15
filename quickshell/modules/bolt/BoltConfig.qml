@@ -17,6 +17,9 @@ import Quickshell
 //            spiral on the new window if nothing had focus.
 //   cursor - Super+Ctrl: a spiral winding in onto the mouse cursor, to
 //            find it (Super+Ctrl bind in hypr/hyprland/keybinds.lua).
+//   draw   - Super+Ctrl+left-drag: a bolt trailing the cursor while held.
+//            The one trigger that samples the cursor (~60/s in bolt.lua),
+//            and only while the button is down.
 //   open   - new windows (Hyprland's window.open, same Lua route). Only the
 //            classes in `open.apps` unless `open.allApps` is set.
 Singleton {
@@ -89,6 +92,21 @@ Singleton {
         enabled: true,
         radius: 160,   // px the spiral starts out at
         turns: 1.25
+    })
+
+    readonly property var draw: ({
+        enabled: true,
+        trailMs: 380,      // how far back the trail reaches
+        fadeMs: 260,       // trail fade-out after the button is released
+        spacing: 26,       // px between the trail's anchor points
+        spread: 0.35,      // sideways kink per anchor gap (fraction of spacing)
+        reshapeMs: 50,    // how often the kinks are re-rolled (the bolt changes shape)
+        jitter: 0.8,       // px of per-frame wobble on top, so it still crackles
+        levels: 2,         // extra subdivisions between anchors
+        forkChance: 0.15,  // per anchor gap, per re-roll: chance of a short fork
+        width: 0.8,
+        opacity: 0.95,
+        head: 7            // glow radius at the cursor, px (0 = none)
     })
 
     readonly property var open: ({

@@ -100,12 +100,80 @@ end)
 
 -- Super+Ctrl tapped on their own - like Windows' "show pointer location":
 -- quickshell draws a bolt spiralling in onto the cursor (keybinds.lua).
+-- Skipped right after a Super+Ctrl+drag, whose modifier release would
+-- otherwise end every drawing with a spiral.
+local just_drew = false
+
 function M.find_cursor()
     pcall(function()
+        if just_drew then
+            just_drew = false
+            return
+        end
         local p = hl.get_cursor_pos()
         if p then
             emit(string.format("cursor %d %d", math.floor(p.x + 0.5), math.floor(p.y + 0.5)))
         end
+    end)
+end
+
+-- Super+Ctrl+left-drag draws a bolt trail behind the cursor. The only
+-- polling in this file, and only while the button is held: a repeating
+-- timer samples the cursor every DRAW_SAMPLE_MS and sends it on when it
+-- moved. Capped at DRAW_MAX_MS in case the release is never seen.
+local DRAW_SAMPLE_MS = 16
+local DRAW_MAX_MS = 15000
+local draw_timer = nil
+
+local function cursor_xy()
+    local p = hl.get_cursor_pos()
+    if not p then
+        return nil
+    end
+    return math.floor(p.x + 0.5), math.floor(p.y + 0.5)
+end
+
+function M.draw_stop()
+    pcall(function()
+        if not draw_timer then
+            return
+        end
+        draw_timer:set_enabled(false)
+        draw_timer = nil
+        emit("drawend")
+        -- The Super+Ctrl release that usually follows belongs to the drag.
+        just_drew = true
+        hl.timer(function()
+            just_drew = false
+        end, { timeout = 1500, type = "oneshot" })
+    end)
+end
+
+function M.draw_start()
+    pcall(function()
+        if draw_timer then
+            return
+        end
+        local lx, ly = cursor_xy()
+        if not lx then
+            return
+        end
+        emit(string.format("draw %d %d", lx, ly))
+        local ticks = 0
+        draw_timer = hl.timer(function()
+            pcall(function()
+                ticks = ticks + 1
+                if ticks * DRAW_SAMPLE_MS > DRAW_MAX_MS then
+                    M.draw_stop()
+                    return
+                end
+                local x, y = cursor_xy()
+                if x and (x ~= lx or y ~= ly) then
+                    lx, ly = x, y
+                    emit(string.format("draw %d %d", x, y))
+                end
+            end)
+        end, { timeout = DRAW_SAMPLE_MS, type = "repeat" })
     end)
 end
 

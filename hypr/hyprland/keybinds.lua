@@ -55,6 +55,13 @@ for _, key in ipairs({ "Control_L", "Control_R", "Super_L", "Super_R" }) do
     hl.bind("SUPER + CTRL + " .. key, bolt.find_cursor, { release = true, non_consuming = true })
 end
 
+-- Super+Ctrl+left-drag: draw a bolt behind the cursor (hyprland/bolt.lua).
+-- The release is bound ignoring modifiers, so letting go of Super/Ctrl
+-- before the button still ends the drawing; non_consuming, so ordinary
+-- clicks are untouched.
+hl.bind(mod .. " + CTRL + mouse:272", bolt.draw_start)
+hl.bind("mouse:272", bolt.draw_stop, { release = true, ignore_mods = true, non_consuming = true })
+
 -- Scrolling layout
 hl.bind(mod .. " + period", hl.dsp.layout("swapcol r"))
 hl.bind(mod .. " + comma", hl.dsp.layout("swapcol l"))
