@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import qs.modules.theme
+import qs.modules.common
 
 // Month-grid popup, right-click-toggled open from Clock.qml. Same pipeline
 // as MusicPreview.qml: the calendar grid itself is pure QML/JS (Date math),
@@ -121,11 +122,15 @@ PillPopup {
     }
 
     // Opens in a new terminal and closes the popup without handing focus
-    // back to the previous window, so the new terminal keeps it.
+    // back to the previous window, so the new terminal takes it when it
+    // maps. Opened from the keyboard, the bar has to let go of the keyboard
+    // too (BarPopups.yieldKeyboard) or the terminal opens unfocused.
     function openDailyNote(year, month, day) {
         const date = String(year) + "-"
             + String(month + 1).padStart(2, "0") + "-"
             + String(day).padStart(2, "0");
+        if (popup.keyboardActive)
+            BarPopups.yieldKeyboard();
         Quickshell.execDetached([
             "alacritty", "-e", "sh", "-c", 'nvim "$(todays-notes "$1")"', "sh", date
         ]);

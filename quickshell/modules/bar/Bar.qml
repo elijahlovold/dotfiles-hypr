@@ -59,7 +59,9 @@ Scope {
             // only actually takes focus when something inside requests it
             // (forceActiveFocus()), same reasoning as KeytreeWindow.qml -
             // it won't steal focus from other apps just by existing.
-            WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+            // None briefly after a popup launches a window - see
+            // BarPopups.yieldFocus.
+            WlrLayershell.keyboardFocus: BarPopups.yieldFocus ? WlrKeyboardFocus.None : WlrKeyboardFocus.OnDemand
 
             Workspaces {
                 id: workspacesItem
