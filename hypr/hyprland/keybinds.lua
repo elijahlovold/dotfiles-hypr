@@ -85,14 +85,14 @@ end)
 -- Move active window to a workspace with mod + SHIFT + [0-9]
 for i = 1, 10 do
     local key = tostring(i % 10) -- 10 maps to key 0
-    hl.bind(mod .. " + " .. key, hl.dsp.focus({ workspace = i }))
+    hl.bind(mod .. " + " .. key, bolt.focus({ workspace = i }))
     hl.bind(mod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
 end
 
 -- mod+alt+[0-9]: jump to workspace and launch its app (i3 $mod+Mod1+N)
 local function workspace_exec(workspace, command)
     return function()
-        hl.dispatch(hl.dsp.focus({ workspace = workspace }))
+        hl.dispatch(bolt.focus({ workspace = workspace }))
         if command then
             hl.exec_cmd(command)
         end
