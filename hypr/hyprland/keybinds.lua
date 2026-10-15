@@ -26,6 +26,9 @@ hl.bind(mod .. " + Space", function()
     end
 end)
 hl.bind(mod .. " + SHIFT + Space", hl.dsp.window.float({ action = "toggle" }))
+-- Show/hide the quickshell bar (quickshell/modules/bar/Bar.qml listens for
+-- this custom event - same route as the bolts, no process spawned).
+hl.bind(mod .. " + CTRL + Space", hl.dsp.event("bar:toggle"))
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen({ action = "toggle" }))
 
 -- i3: mod+s layout stacking / mod+w layout tabbed -> Hyprland's window groups are the

@@ -19,6 +19,10 @@ Singleton {
 
     property var targets: []
 
+    // Bar shown/hidden (Super+Ctrl+Space, `qs ipc call bar toggle` - see
+    // Bar.qml). Lives here so summon() can tell the pills aren't on screen.
+    property bool barShown: true
+
     function register(target) {
         root.targets = root.targets.concat([target]);
     }
@@ -35,6 +39,10 @@ Singleton {
     }
 
     function summon(name) {
+        if (!root.barShown) {
+            Quickshell.execDetached(["notify-send", "-a", "Quickshell", "-u", "low", "-t", "1500", "Bar", "Bar is hidden (Super+Ctrl+Space)"]);
+            return;
+        }
         const focused = Hyprland.focusedMonitor?.name ?? "";
         const candidates = root.targets.filter(t => t.name === name && t.widget && t.widget.visible && t.widget.width > 0);
         if (candidates.length === 0) {

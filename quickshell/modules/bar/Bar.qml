@@ -5,8 +5,27 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import qs.modules.theme
 import qs.modules.common
+import Quickshell.Io
 
 Scope {
+    // Show/hide every bar: Super+Ctrl+Space sends `custom>>bar:toggle` from
+    // the Hyprland bind (no process spawned); `qs ipc call bar toggle` works
+    // too. Hidden bars are unmapped, not destroyed - widgets keep their
+    // state, and their exclusive zone goes away so windows take the space.
+    IpcHandler {
+        target: "bar"
+
+        function toggle(): void {
+            BarPopups.barShown = !BarPopups.barShown;
+        }
+        function show(): void {
+            BarPopups.barShown = true;
+        }
+        function hide(): void {
+            BarPopups.barShown = false;
+        }
+    }
+
     // Quickshell's incremental Hyprland state tracking misses workspace-
     // altering actions that don't change global focus - e.g. win+N
     // (movecurrentworkspacetomonitor) fires Hyprland's moveworkspacev2
@@ -19,6 +38,10 @@ Scope {
         target: Hyprland
 
         function onRawEvent(event: HyprlandEvent) {
+            if (event.name === "custom" && event.data === "bar:toggle") {
+                BarPopups.barShown = !BarPopups.barShown;
+                return;
+            }
             if (event.name === "moveworkspacev2" || event.name === "moveworkspace") {
                 Hyprland.refreshWorkspaces();
                 Hyprland.refreshMonitors();
@@ -34,6 +57,7 @@ Scope {
 
             required property ShellScreen modelData
             screen: barRoot.modelData
+            visible: BarPopups.barShown
 
             // Mirrors the old i3 bar {} blocks: the primary monitor got the full
             // i3status-rust config + tray, DP-1 (was DisplayPort-0) got the short
