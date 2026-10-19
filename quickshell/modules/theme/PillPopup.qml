@@ -63,7 +63,6 @@ PopupWindow {
     property bool closing: false
 
     function close(restoreFocus) {
-        console.info("[focusdbg]", Date.now() % 100000, "popup close", restoreFocus); // FOCUSDBG
         if (popup.closing)
             return;
         popup.closing = true;
@@ -89,7 +88,6 @@ PopupWindow {
         if (!popup.keyboardActive) {
             popup.restoreAddress = Hyprland.activeToplevel?.address ?? "";
             popup.keyboardActive = true;
-            console.info("[focusdbg]", Date.now() % 100000, "popup keyboardActive"); // FOCUSDBG
             popup.keyboardActivated();
         }
         // A FocusScope keeps its own focused child (e.g. a clicked
@@ -120,9 +118,7 @@ PopupWindow {
         id: focusGrab
         windows: [popup]
         active: popup.keyboardActive && popup.visible && !popup.regrabbing
-        onActiveChanged: console.info("[focusdbg]", Date.now() % 100000, "grab active:", active) // FOCUSDBG
         onCleared: {
-            console.info("[focusdbg]", Date.now() % 100000, "grab CLEARED by compositor"); // FOCUSDBG
             if (popup.keyboardActive)
                 popup.close(false);
         }
@@ -140,7 +136,6 @@ PopupWindow {
     property bool regrabbing: false
 
     function regrab() {
-        console.info("[focusdbg]", Date.now() % 100000, "regrab"); // FOCUSDBG
         popup.regrabbing = true;
         popup.regrabbing = false;
     }
@@ -295,7 +290,6 @@ PopupWindow {
         // directly when nothing more specific does).
         Keys.onPressed: event => popup.handleKey(event)
         onActiveFocusChanged: {
-            console.info("[focusdbg]", Date.now() % 100000, "popup frame activeFocus:", activeFocus); // FOCUSDBG
             if (!activeFocus && focusGrab.active && !popup.closing)
                 popup.regrab();
         }
