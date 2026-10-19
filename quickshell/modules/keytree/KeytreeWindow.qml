@@ -3,16 +3,16 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Hyprland
 import qs.modules.theme
 import qs.modules.bolt
 import qs.modules.common
 
 // QML/quickshell port of keytree's C++ KeyTreeModel + Main.qml. Runs as an
-// overlay-layer surface covering the whole screen (transparent, click/input
-// masked down to the actual content square) so the radial menu can be
-// centered without wlr-layer-shell's edge-anchoring - same trick as
-// ii/modules/ii/cheatsheet/Cheatsheet.qml.
+// overlay-layer surface covering the whole screen (transparent) so the
+// radial menu can be centered without wlr-layer-shell's edge-anchoring -
+// same trick as ii/modules/ii/cheatsheet/Cheatsheet.qml. The whole surface
+// takes input (see `backdrop`), so the pointer is always over keytree and
+// never over a window the compositor could hand focus to.
 PanelWindow {
     id: root
 
@@ -39,16 +39,12 @@ PanelWindow {
     }
 
     // Cancel a close in progress and start over at the root level of
-    // `configName`, keeping this surface - swapping in a fresh window while
-    // this one still holds keyboard focus lets the compositor hand focus to
-    // whatever's under the cursor as the old one unmaps, which closes the
-    // new one straight away. Returns false if this window has already lost
-    // focus (it's closing *because* of that) - then a fresh window is the
-    // only way to get focus back, and nothing is left to steal it.
+    // `configName`, keeping this surface rather than mapping a fresh one
+    // over it while it unmaps. Clearing `closing`/`launched` makes it
+    // `interactive` again, taking exclusive keyboard focus back.
     function reopen() {
-        if (!contentItem.activeFocus)
-            return false;
         closeTimer.stop();
+        root.launched = false;
         if (root.searchMode)
             root.exitSearch();
         // Before the level reset, so new node delegates animate in rather
@@ -57,7 +53,6 @@ PanelWindow {
         root.stack = [];
         root.current = root.virtualRoot;
         Qt.callLater(root.openingSwirl);
-        return true;
     }
 
     Timer {
@@ -77,71 +72,33 @@ PanelWindow {
     color: "transparent"
     WlrLayershell.namespace: "quickshell:keytree"
     WlrLayershell.layer: WlrLayer.Overlay
-    // OnDemand (not Exclusive) - Exclusive prevents the compositor from ever
-    // handing keyboard focus elsewhere, which would make "close when focus
-    // is lost" impossible to trigger in the first place. Dropped to None the
-    // moment something is launched (see `launched`).
-    WlrLayershell.keyboardFocus: root.launched ? WlrKeyboardFocus.None : WlrKeyboardFocus.OnDemand
-
-    // Focus loss is ignored for the first moments after opening: opening
-    // races the cursor warp below (a separate hyprctl process) and the
-    // surface's own map, and focus can bounce through the window under the
-    // cursor on the way in - which the focus-loss handler read as "user
-    // left" and closed the menu on start. (Not fixed by requesting
-    // Exclusive focus at first and dropping to OnDemand after - that closed
-    // it every time, apparently Hyprland handing focus away at the switch.)
-    property bool settled: false
-
-    Timer {
-        id: settleTimer
-        interval: 350
-        onTriggered: {
-            root.settled = true;
-            // Still unfocused once things settle - a real loss.
-            if (!contentItem.activeFocus)
-                focusLossTimer.restart();
-        }
-    }
-
-    // Hyprland's menu focus grab: while active, keyboard focus stays on
-    // this surface whatever else maps, refocuses or changes config (e.g.
-    // hypr-shader's runtime `hyprctl eval` landing while the menu opens),
-    // and a click outside clears it - that's what closes the menu now.
-    // Released the moment the menu starts closing or launches something,
-    // so the launched app can take focus when it maps.
-    HyprlandFocusGrab {
-        id: focusGrab
-        windows: [root]
-        active: !root.launched && !root.closing
-        onCleared: {
-            if (!root.launched && !root.closing)
-                root.requestClose();
-        }
-    }
-
-    // Fallback for when the grab isn't holding (not granted, or released):
-    // focus loss closes the menu only if it's still lost a beat later, so a
-    // momentary blip can't. Under the grab a loss can only be focus moving
-    // between items inside this window, so it's reclaimed instead.
-    Timer {
-        id: focusLossTimer
-        interval: 120
-        onTriggered: {
-            if (!root.settled || contentItem.activeFocus)
-                return;
-            if (focusGrab.active)
-                contentItem.forceActiveFocus();
-            else
-                root.requestClose();
-        }
+    // Exclusive while open: Hyprland then refuses keyboard focus to every
+    // window (follow_mouse, refocus on window/layer unmap, layout changes
+    // from `hyprctl eval`, newly mapped apps) until this surface lets go -
+    // nothing has to notice focus loss and win it back. Dismissal is
+    // explicit instead: Escape, a launch, or a click on `backdrop`.
+    // Dropped to None (and input to pass-through) as soon as the menu
+    // starts closing, so neither keys nor clicks are swallowed while the
+    // close animation plays.
+    //
+    // (Previously OnDemand + HyprlandFocusGrab + an activeFocus watcher on
+    // debounce timers, with input masked to the disc. Hyprland ends a focus
+    // grab on any internal refocus - window/layer unmap, tiled resize -
+    // while the pointer is over a surface outside the grab, which with the
+    // mask meant anywhere off the disc, so the menu sporadically closed
+    // itself depending on where the cursor was and what else was happening.)
+    readonly property bool interactive: !root.closing && !root.launched
+    WlrLayershell.keyboardFocus: root.interactive ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    // null = the whole surface takes input; an empty region = none of it.
+    mask: root.interactive ? null : noInput
+    Region {
+        id: noInput
     }
 
     // Set when a node/search result runs its command. Gives up keyboard
-    // focus immediately instead of holding it through the close animation:
-    // Hyprland won't move focus off a focused layer (misc:
-    // layers_hog_keyboard_focus), so an app that maps while the menu is
-    // still fading out would otherwise open unfocused, and once the menu
-    // unmaps focus falls to whatever's under the (warped) cursor instead.
+    // focus immediately (search mode skips the close animation, so this
+    // can land without `closing`): an app that maps while the menu still
+    // holds focus would otherwise open unfocused.
     property bool launched: false
 
     function launch(cmd) {
@@ -149,8 +106,20 @@ PanelWindow {
         Quickshell.execDetached(["sh", "-c", cmd]);
     }
 
-    mask: Region {
-        item: contentItem
+    // Click-catcher for the rest of the screen: a press anywhere off the
+    // content square closes the menu (what clicking outside did before).
+    // Below contentItem, so presses on the menu itself only land here if
+    // nothing in it took them - those are ignored.
+    MouseArea {
+        id: backdrop
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        onPressed: mouse => {
+            if (contentItem.contains(mapToItem(contentItem, mouse.x, mouse.y)))
+                mouse.accepted = false;
+            else
+                root.requestClose();
+        }
     }
 
     // // Real compositor-side blur behind the disc, matched by the
@@ -387,18 +356,6 @@ PanelWindow {
         height: root.winSize
         focus: true
 
-        // activeFocus (not the window's `active` property, which doesn't
-        // reliably update for wlr-layer-shell surfaces) - it goes false
-        // both when another window steals OS-level focus and when nothing
-        // else in this window claims it, which is exactly "focus left
-        // keytree" in both senses.
-        onActiveFocusChanged: {
-            if (activeFocus)
-                focusLossTimer.stop();
-            else
-                focusLossTimer.restart();
-        }
-
         // Circular tint behind the content, lined up with BackgroundEffect
         // .blurRegion above so blur + tint read as one frosted-glass disc.
         // Derived from Theme.groupBg's own RGB (own alpha discarded, tint
@@ -411,7 +368,7 @@ PanelWindow {
         // linear-only - no built-in radial gradient primitive. Sized larger
         // than contentItem (parent here) so the fade bleeds out past the
         // outermost node bubbles instead of stopping flush at their edge;
-        // this is purely a visual halo - the input mask and blurRegion
+        // this is purely a visual halo - backdrop's click-outside test and blurRegion
         // above stay tied to contentItem's own tighter bounds.
         Canvas {
             id: haloCanvas
@@ -566,18 +523,12 @@ PanelWindow {
     }
 
     Component.onCompleted: {
-        // Warp the cursor to the popup's center before grabbing focus. The
-        // mask only makes the centered contentItem region interactive - if
-        // the cursor is anywhere else on screen when this opens (wherever
-        // it happened to be), the compositor sees it hovering whatever
-        // window is behind keytree at that point, and with
-        // focus-follows-mouse, the smallest bump hands focus straight to
-        // it, instantly triggering the activeFocus-loss dismiss above.
+        // Start the pointer on the menu's center so it's ready for mouse
+        // use. Cosmetic only - focus doesn't depend on where the cursor is.
         Quickshell.execDetached(["hyprctl", "dispatch", "movecursor",
             String(Math.round(root.screen.x + root.screen.width / 2)),
             String(Math.round(root.screen.y + root.screen.height / 2))]);
         contentItem.forceActiveFocus();
-        settleTimer.start();
         // After the first frame's layout, so the nodes it aims at exist.
         Qt.callLater(root.openingSwirl);
     }
