@@ -102,6 +102,7 @@ PanelWindow {
     property bool launched: false
 
     function launch(cmd) {
+        console.info("[focusdbg]", Date.now() % 100000, "keytree launch", cmd); // FOCUSDBG
         root.launched = true;
         Quickshell.execDetached(["sh", "-c", cmd]);
     }
@@ -532,4 +533,6 @@ PanelWindow {
         // After the first frame's layout, so the nodes it aims at exist.
         Qt.callLater(root.openingSwirl);
     }
+
+    Component.onDestruction: console.info("[focusdbg]", Date.now() % 100000, "keytree destroyed") // FOCUSDBG
 }

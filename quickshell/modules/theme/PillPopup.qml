@@ -63,6 +63,7 @@ PopupWindow {
     property bool closing: false
 
     function close(restoreFocus) {
+        console.info("[focusdbg]", Date.now() % 100000, "popup close", restoreFocus); // FOCUSDBG
         if (popup.closing)
             return;
         popup.closing = true;
@@ -88,6 +89,7 @@ PopupWindow {
         if (!popup.keyboardActive) {
             popup.restoreAddress = Hyprland.activeToplevel?.address ?? "";
             popup.keyboardActive = true;
+            console.info("[focusdbg]", Date.now() % 100000, "popup keyboardActive"); // FOCUSDBG
             popup.keyboardActivated();
         }
         // A FocusScope keeps its own focused child (e.g. a clicked
@@ -115,12 +117,32 @@ PopupWindow {
     // Hyprland's focus grab can be taken after mapping (unlike an xdg_popup
     // grab) and is cleared by a click anywhere outside the listed windows.
     HyprlandFocusGrab {
+        id: focusGrab
         windows: [popup]
-        active: popup.keyboardActive && popup.visible
+        active: popup.keyboardActive && popup.visible && !popup.regrabbing
+        onActiveChanged: console.info("[focusdbg]", Date.now() % 100000, "grab active:", active) // FOCUSDBG
         onCleared: {
+            console.info("[focusdbg]", Date.now() % 100000, "grab CLEARED by compositor"); // FOCUSDBG
             if (popup.keyboardActive)
                 popup.close(false);
         }
+    }
+
+    // Hyprland doesn't keep the keyboard on a grab when some *other* layer
+    // surface unmaps: it hands the keyboard straight back to the last
+    // window focused the regular way, grab or no grab (CLayerSurface::
+    // onUnmap). Keytree closing, the bolt overlay going away after a
+    // strike, a notification - any of them left the popup looking focused
+    // while keys went to the window behind it. While the grab should be
+    // holding, the keyboard leaving can only be that, so take a fresh grab
+    // (which starts by moving the keyboard back to the popup). A real
+    // dismissal - a click outside - clears the grab first, via onCleared.
+    property bool regrabbing: false
+
+    function regrab() {
+        console.info("[focusdbg]", Date.now() % 100000, "regrab"); // FOCUSDBG
+        popup.regrabbing = true;
+        popup.regrabbing = false;
     }
 
     // The enclosing Pill (see bar/Pill.qml's isPill) - the "tab" the card hangs
@@ -272,6 +294,11 @@ PopupWindow {
         // Keys bubble here from whatever inside has focus (or arrive
         // directly when nothing more specific does).
         Keys.onPressed: event => popup.handleKey(event)
+        onActiveFocusChanged: {
+            console.info("[focusdbg]", Date.now() % 100000, "popup frame activeFocus:", activeFocus); // FOCUSDBG
+            if (!activeFocus && focusGrab.active && !popup.closing)
+                popup.regrab();
+        }
 
         // 0 -> 1 on open: the card drops down out of the pill.
         property real reveal: 0
