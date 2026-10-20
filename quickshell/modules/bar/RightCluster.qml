@@ -63,19 +63,12 @@ Row {
         Drives {}
     }
 
-    // System - re-enabling Hueshift/DiskIo below needs a Separator {} added
-    // next to them too, same as the three active widgets here.
+    // System - GPU | CPU | Mem, grouped in SysMon so hovering any of them
+    // opens the resource monitor popup. Re-enabling Hueshift/DiskIo below
+    // needs a Separator {} added next to them too.
     Pill {
         // Loader { active: root.full; sourceComponent: Hueshift {} }
-        AmdGpu {
-            full: root.full
-        }
-        Separator {}
-        Cpu {
-            full: root.full
-        }
-        Separator {}
-        Memory {
+        SysMon {
             full: root.full
         }
         // Loader { active: root.full; sourceComponent: DiskIo {} }

@@ -177,6 +177,7 @@ Singleton {
         "n": { icon: "\uf0f3  ", label: "Notifications", cmd: "qs ipc call barpopup open notifications" },
         "b": { icon: "\uf02f  ", label: "Bambu", cmd: "qs ipc call barpopup open bambu" },
         "y": { icon: "\u{f11ef}  ", label: "Stator", cmd: "qs ipc call barpopup open stator" },
+        "h": { icon: "  ", label: "System monitor", cmd: "qs ipc call barpopup open sysmon" },
         // Hyprland screen shaders (scripts/hypr-shader, hypr/shaders/).
         // Picking the active one again turns it off; ▶ = animated, which
         // redraws the whole monitor every frame while it's on.
