@@ -15,6 +15,13 @@ Singleton {
         search: "/"
     })
 
+    // Directory levels ("<dir> path" nodes - see KeytreeWindow/DirKeys):
+    // the path is appended as the last argument.
+    readonly property var dirs: ({
+        openDir: ["alacritty", "--working-directory"],
+        openFile: ["xdg-open"]
+    })
+
     readonly property var layout: ({
         type: "ring",              // "ring" or "spiral"
         shape: "circle",           // "rect" or "circle"
@@ -133,6 +140,7 @@ Singleton {
         "m": { icon: "󰄛  ", label: "CaH",      cmd: "mupdf -r 180 ~/dox/books/The\\ Complete\\ Calvin\\ \\&\\ Hobbes.pdf $((1 + RANDOM % 1350))" },
         "o": { icon: "  ", label: "Obsidian", cmd: "obsidian \"obsidian://open?vault=vault\"" },
         "p": { icon: "  ", label: "Python",   cmd: "alacritty -e python3.14" },
+        "r": { icon: "󰷚  ", label: "Minesweeper",   cmd: "alacritty -e vim-sweeper" },
         "s": {
           label: "Social/",
           icon: "  ",
@@ -160,7 +168,21 @@ Singleton {
         "w": { icon: "󰸉  ", label: "Wallpaper", cmd: "qs ipc call imagepicker toggle" },
         "y": { icon: "󱐋  ", label: "Yazi",    cmd: "kitty -e zsh -c yazi" },
       },
-
+      // Super+O - directories. Everything below these stays in directory
+      // mode; keys under them are assigned once and kept (DirKeys.qml).
+      "dirs": {
+        "r": { icon: "󰊢  ", label: "repos",      cmd: "<dir> ~/repos" },
+        "c": { icon: "  ", label: "crepos",     cmd: "<dir> ~/repos/cadence" },
+        "x": { icon: "󰈙  ", label: "dox",        cmd: "<dir> ~/dox" },
+        "s": { icon: "󰑴  ", label: "school",     cmd: "<dir> ~/dox/school" },
+        "l": { icon: "  ", label: "dl",         cmd: "<dir> ~/dl" },
+        "p": { icon: "  ", label: "proj",       cmd: "<dir> ~/proj" },
+        "a": { icon: "󰴁  ", label: "asts",       cmd: "<dir> ~/asts" },
+        "i": { icon: "  ", label: "pix",        cmd: "<dir> ~/pix", files: true },
+        "m": { icon: "󱊞  ", label: "mnt",        cmd: "<dir> /mnt" },
+        "v": { icon: "󰧑  ", label: "cadence",    cmd: "<dir> /var/lib/cadence" },
+        "t": { icon: "  ", label: "data_store", cmd: "<dir> /var/lib/cadence/data_store" },
+      },
       // Super+P - open a bar popup from the keyboard (lightning-strike
       // reveal, see modules/common/BarPopups.qml + modules/bolt).
       "popups": {

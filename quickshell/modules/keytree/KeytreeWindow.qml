@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import Qt.labs.folderlistmodel
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -102,9 +103,14 @@ PanelWindow {
     property bool launched: false
 
     function launch(cmd) {
-        console.info("[focusdbg]", Date.now() % 100000, "keytree launch", cmd); // FOCUSDBG
         root.launched = true;
         Quickshell.execDetached(["sh", "-c", cmd]);
+    }
+
+    // Same, for an argv that mustn't go through a shell (arbitrary paths).
+    function launchArgv(argv) {
+        root.launched = true;
+        Quickshell.execDetached(argv);
     }
 
     // Click-catcher for the rest of the screen: a press anywhere off the
@@ -151,8 +157,8 @@ PanelWindow {
     property var current: root.virtualRoot
     property var stack: []
 
-    readonly property var currentChildren: root.current.children ?? {}
-    readonly property string currentLabel: root.current.label ?? ""
+    readonly property var currentChildren: root.current.dir ? root.dirChildren : (root.current.children ?? {})
+    readonly property string currentLabel: (root.current.label ?? "") + (root.current.dir && root.dirOverflow > 0 ? "  +" + root.dirOverflow : "")
     readonly property bool atRoot: root.stack.length === 0
 
     readonly property var items: {
@@ -164,7 +170,7 @@ PanelWindow {
                 key: key,
                 label: node.label ?? "",
                 icon: (node.icon ?? "").slice(0, 5),
-                isLeaf: !node.children,
+                isLeaf: !node.children && !root.asDirNode(node),
                 cmd: node.cmd ?? ""
             });
         }
@@ -175,9 +181,19 @@ PanelWindow {
         if (!key)
             return;
         const k = key.toLowerCase();
-        const node = root.currentChildren[k];
-        if (!node)
+        const hit = root.currentChildren[k];
+        if (!hit)
             return;
+        // A "<dir> path" config node opens as a directory level.
+        const node = root.asDirNode(hit) ?? hit;
+        if (node.dir)
+            DirKeys.recordUse(node.dir);
+        if (node.open) {
+            DirKeys.recordUse(node.open);
+            root.launchArgv(KeytreeConfig.dirs.openFile.concat([node.open]));
+            root.requestClose();
+            return;
+        }
         if (node.children) {
             // Aim at the picked node before the level swaps out from under it.
             const picked = root.menuPoint(radialView.nodeFinalCenter(root.items.findIndex(it => it.key === k)));
@@ -240,6 +256,237 @@ PanelWindow {
             root.menuBolt("swirl", root.menuPoint(radialView.center), target);
     }
 
+    // ── Directory levels ("<dir> path" nodes) ─────────────────────────────────
+    // A level whose node has `dir` lists that directory instead of fixed
+    // children: subdirectories become branches (same `dir` mode all the way
+    // down), files open with xdg-open, Enter opens the level itself in a
+    // terminal. Keys come from DirKeys so they stay put across visits; at
+    // most 25 entries get one, the rest are reachable through search.
+    // Hidden entries are left out here (search includes them). Files only
+    // take keys the directories left free, unless the node sets
+    // `files: true` (inherited by everything under it).
+    readonly property string home: Quickshell.env("HOME")
+
+    function expandPath(p) {
+        const abs = p === "~" || p.startsWith("~/") ? root.home + p.slice(1) : p;
+        return abs.length > 1 ? abs.replace(/\/+$/, "") : abs;
+    }
+
+    function dirNode(path, label, files) {
+        return { label: label, icon: "\uf07b  ", dir: path, files: files, children: {} };
+    }
+
+    function asDirNode(node) {
+        if (node.dir)
+            return node;
+        const m = (node.cmd ?? "").match(/^<dir>\s+(.+)$/);
+        return m ? root.dirNode(root.expandPath(m[1].trim()), node.label ?? m[1], node.files ?? false) : null;
+    }
+
+    function fileUrl(path) {
+        return "file://" + path.split("/").map(encodeURIComponent).join("/");
+    }
+
+    property var dirChildren: ({})
+    property int dirOverflow: 0
+    property bool dirReady: false
+    // Keys typed before a directory finished listing, replayed once it has
+    // ("\r" = Enter) - so typing ahead through a few levels just works.
+    property string pendingKeys: ""
+
+    onCurrentChanged: {
+        root.dirChildren = {};
+        root.dirOverflow = 0;
+        root.dirReady = false;
+        root.rebuildDir();
+    }
+
+    // The folder whose listing dirModel actually holds. setFolder() swaps
+    // `folder` at once but keeps the previous folder's rows (and its Ready
+    // status) until the background read lands - only then is
+    // folderChanged emitted. Reading in between would hand DirKeys the old
+    // listing under the new path and park every key there.
+    property string listedUrl: ""
+
+    FolderListModel {
+        id: dirModel
+        folder: root.current.dir ? root.fileUrl(root.current.dir) : ""
+        showDirs: true
+        showFiles: true
+        showHidden: false
+        showDotAndDotDot: false
+        showDirsFirst: true
+        onFolderChanged: {
+            root.listedUrl = String(dirModel.folder);
+            Qt.callLater(root.rebuildDir);
+        }
+        // Live changes while the level is open: entries added/removed
+        // change the count, a rename only changes data.
+        onCountChanged: Qt.callLater(root.rebuildDir)
+        onDataChanged: Qt.callLater(root.rebuildDir)
+    }
+
+    function rebuildDir() {
+        const dir = root.current.dir;
+        if (!dir || root.listedUrl !== String(Qt.url(root.fileUrl(dir))) || String(dirModel.folder) !== root.listedUrl)
+            return;
+        const entries = [];
+        for (let i = 0; i < dirModel.count; i++) {
+            const modified = dirModel.get(i, "fileModified");
+            entries.push({
+                name: dirModel.get(i, "fileName"),
+                isDir: dirModel.get(i, "fileIsDir"),
+                mtime: modified ? modified.getTime() : 0
+            });
+        }
+        const isDir = {};
+        for (const e of entries)
+            isDir[e.name] = e.isDir;
+
+        const res = DirKeys.assign(dir, entries, root.current.files);
+        const children = {};
+        for (const k of Object.keys(res.keys).sort()) {
+            const rel = res.keys[k];
+            const pinned = rel.includes("/");
+            const relDir = pinned ? rel.endsWith("/") : isDir[rel];
+            const plain = rel.replace(/\/$/, "");
+            const abs = dir === "/" ? "/" + plain : dir + "/" + plain;
+            const label = plain + (relDir ? "/" : "");
+            if (relDir)
+                children[k] = root.dirNode(abs, label, root.current.files);
+            else
+                children[k] = { label: label, icon: "\uf15b  ", open: abs };
+            if (pinned)
+                children[k].icon = "\uf08d  ";
+        }
+        root.dirChildren = children;
+        root.dirOverflow = res.overflow;
+        root.dirReady = true;
+
+        const queued = root.pendingKeys;
+        root.pendingKeys = "";
+        for (let i = 0; i < queued.length; i++) {
+            if (root.current.dir && !root.dirReady) {
+                root.pendingKeys = queued.slice(i);
+                break;
+            }
+            if (queued[i] === "\r")
+                root.openDirHere();
+            else
+                root.pressKey(queued[i]);
+            if (root.closing || root.launched)
+                break;
+        }
+    }
+
+    function openDirHere() {
+        const dir = root.current.dir;
+        if (!dir)
+            return;
+        DirKeys.recordUse(dir);
+        root.launchArgv(KeytreeConfig.dirs.openDir.concat([dir]));
+        root.requestClose();
+    }
+
+    // Search in a directory level: just that directory's own entries
+    // (not subdirectories'), hidden ones included - so it's how you reach
+    // whatever didn't get one of the 25 keys. Enter on a directory jumps
+    // there in the tree, Ctrl+Enter
+    // opens it (terminal / xdg-open); Tab then a letter pins the selection
+    // to that key at this level.
+    readonly property bool dirSearch: root.searchMode && !!root.current.dir
+    property var dirScan: []
+    property bool pinMode: false
+    property var searchEntries: []
+
+    Process {
+        id: dirScanProc
+        // %Y: the type a symlink points at, so linked dirs count as dirs.
+        command: ["find", root.current.dir ?? "/", "-mindepth", "1", "-maxdepth", "1", "-printf", "%Y %P\\n"]
+        stdout: SplitParser {
+            // Lowercased once here, not on every keystroke.
+            onRead: line => {
+                if (line.length < 3)
+                    return;
+                const rel = line.slice(2);
+                root.dirScan.push({ rel: rel, isDir: line[0] === "d", lower: rel.toLowerCase() });
+                Qt.callLater(root.updateSearchResults);
+            }
+        }
+    }
+
+    // Typing usually narrows the query, so only the last query's matches
+    // (plus whatever streamed in since) need checking again - keeps big
+    // flat directories (~/dl) cheap per keystroke.
+    property var dirNarrow: ({ query: null, pool: [], seen: 0 })
+
+    // Prefix matches before substring ones, directories before files,
+    // then by name - top maxSearchResults kept by insertion rather than
+    // sorting every match.
+    function dirSearchHits(query) {
+        const max = root.maxSearchResults;
+        const n = root.dirNarrow;
+        if (query.length === 0) {
+            n.query = null;
+            return root.dirScan.filter(e => e.isDir).concat(root.dirScan.filter(e => !e.isDir)).slice(0, max);
+        }
+        const src = n.query !== null && query.startsWith(n.query) ? n.pool.concat(root.dirScan.slice(n.seen)) : root.dirScan;
+        const pool = [];
+        for (const e of src)
+            if (e.lower.includes(query))
+                pool.push(e);
+        n.query = query;
+        n.pool = pool;
+        n.seen = root.dirScan.length;
+
+        const best = [];
+        for (const e of pool) {
+            const rank = (e.lower.startsWith(query) ? 0 : 2) + (e.isDir ? 0 : 1);
+            let i = best.length;
+            while (i > 0 && (best[i - 1].rank > rank || (best[i - 1].rank === rank && best[i - 1].e.lower > e.lower)))
+                i--;
+            if (i < max) {
+                best.splice(i, 0, { rank: rank, e: e });
+                if (best.length > max)
+                    best.pop();
+            }
+        }
+        return best.map(b => b.e);
+    }
+
+    function dirSearchLabel(e) {
+        const key = DirKeys.keyFor(root.current.dir, e.rel);
+        return (key ? key + "  " : "   ") + e.rel + (e.isDir ? "/" : "");
+    }
+
+    function confirmDirSearch(direct) {
+        const e = root.searchEntries[root.searchSelection];
+        if (!e)
+            return;
+        const dir = root.current.dir;
+        const abs = dir === "/" ? "/" + e.rel : dir + "/" + e.rel;
+        DirKeys.recordUse(abs);
+        if (e.isDir && !direct) {
+            const files = root.current.files;
+            root.exitSearch();
+            root.stack = [...root.stack, root.current];
+            root.current = root.dirNode(abs, e.rel + "/", files);
+            return;
+        }
+        root.launchArgv((e.isDir ? KeytreeConfig.dirs.openDir : KeytreeConfig.dirs.openFile).concat([abs]));
+        root.requestClose();
+    }
+
+    function pinSelection(key) {
+        const e = root.searchEntries[root.searchSelection];
+        root.pinMode = false;
+        if (!e || !DirKeys.slots.includes(key))
+            return;
+        DirKeys.pin(root.current.dir, key, e.rel + (e.isDir ? "/" : ""));
+        root.exitSearch();
+        root.rebuildDir();
+    }
+
     // ── Window sizing (mirrors Main.qml's baseSize/spiralWindowSize) ─────────
     readonly property bool isSpiral: KeytreeConfig.layout.type === "spiral" && root.items.length >= KeytreeConfig.layout.spiralThreshold
     readonly property bool twoRings: KeytreeConfig.layout.type === "ring" && root.items.length >= KeytreeConfig.layout.ringThreshold
@@ -275,6 +522,16 @@ PanelWindow {
 
     function updateSearchResults() {
         const query = root.searchText.toLowerCase();
+        if (root.dirSearch) {
+            // Keep the selection on the same entry while results stream in.
+            const selected = root.searchEntries[root.searchSelection];
+            const hits = root.dirSearchHits(query);
+            root.searchEntries = hits;
+            root.searchResults = hits.map(root.dirSearchLabel);
+            const idx = selected ? hits.findIndex(h => h.rel === selected.rel) : -1;
+            root.searchSelection = idx >= 0 ? idx : 0;
+            return;
+        }
         let results;
         if (query.length === 0) {
             results = root.allBins.slice(0, root.maxSearchResults);
@@ -290,6 +547,14 @@ PanelWindow {
     function enterSearch() {
         root.searchMode = true;
         root.searchText = "";
+        if (root.current.dir) {
+            root.dirScan = [];
+            root.dirNarrow = { query: null, pool: [], seen: 0 };
+            root.searchEntries = [];
+            root.searchResults = [];
+            dirScanProc.running = true;
+            return;
+        }
         if (root.binsReady)
             root.updateSearchResults();
         else
@@ -297,6 +562,9 @@ PanelWindow {
     }
 
     function exitSearch() {
+        dirScanProc.running = false;
+        root.pinMode = false;
+        root.searchEntries = [];
         root.searchMode = false;
         root.searchText = "";
         root.searchResults = [];
@@ -446,9 +714,21 @@ PanelWindow {
 
         Keys.onPressed: event => {
             const kb = KeytreeConfig.keybindings;
+            if (root.searchMode && root.pinMode) {
+                if (contentItem.keyMatches(event, kb.back))
+                    root.pinMode = false;
+                else if (event.text.length === 1)
+                    root.pinSelection(event.text.toLowerCase());
+                event.accepted = true;
+                return;
+            }
             if (root.searchMode) {
                 if (contentItem.keyMatches(event, kb.back))
                     root.exitSearch();
+                else if (root.dirSearch && (event.key === Qt.Key_Return || event.key === Qt.Key_Enter))
+                    root.confirmDirSearch(event.modifiers & Qt.ControlModifier);
+                else if (root.dirSearch && event.key === Qt.Key_Tab)
+                    root.pinMode = root.searchEntries.length > 0;
                 else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
                     root.confirmSearch();
                 else if (event.key === Qt.Key_Backspace)
@@ -475,6 +755,21 @@ PanelWindow {
             }
             if (contentItem.keyMatches(event, kb.search)) {
                 root.enterSearch();
+                event.accepted = true;
+                return;
+            }
+            const enter = event.key === Qt.Key_Return || event.key === Qt.Key_Enter;
+            // Enter only needs the path, so it waits only behind keys that
+            // are themselves waiting (a level that never lists - a missing
+            // mount, or a "#" in the name, which Qt's folder model can't
+            // open - still opens in a terminal).
+            if (root.current.dir && !root.dirReady && (enter ? root.pendingKeys.length > 0 : event.text.length > 0)) {
+                root.pendingKeys += enter ? "\r" : event.text;
+                event.accepted = true;
+                return;
+            }
+            if (enter && root.current.dir) {
+                root.openDirHere();
                 event.accepted = true;
                 return;
             }
@@ -506,6 +801,7 @@ PanelWindow {
             searchText: root.searchText
             searchResults: root.searchResults
             searchSelection: root.searchSelection
+            prompt: root.pinMode ? "pin to key:" : "/"
             visible: root.searchMode
         }
     }
@@ -533,6 +829,4 @@ PanelWindow {
         // After the first frame's layout, so the nodes it aims at exist.
         Qt.callLater(root.openingSwirl);
     }
-
-    Component.onDestruction: console.info("[focusdbg]", Date.now() % 100000, "keytree destroyed") // FOCUSDBG
 }

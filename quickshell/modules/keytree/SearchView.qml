@@ -14,6 +14,8 @@ Item {
     property string searchText: ""
     property var searchResults: []
     property int searchSelection: 0
+    // "/" normally; directory search swaps in a hint while pinning (Tab).
+    property string prompt: "/"
 
     readonly property real inputH:  44
     readonly property real resultH: 37
@@ -49,8 +51,9 @@ Item {
                 spacing: 8
 
                 Text {
+                    id: promptText
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "/"
+                    text: root.prompt
                     color: root.cKeyText
                     font.pixelSize: Math.round(22 * root.fontScale)
                     font.bold: true
@@ -60,7 +63,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 2
                     clip: true
-                    width: parent.width - 32
+                    width: parent.width - promptText.width - 16
 
                     Text {
                         text: root.searchText

@@ -48,7 +48,6 @@ hl.bind(mod .. " + H", bolt.focus({ direction = "l" }))
 hl.bind(mod .. " + L", bolt.focus({ direction = "r" }))
 hl.bind(mod .. " + Left",  bolt.focus({ direction = "l" }))
 hl.bind(mod .. " + Right", bolt.focus({ direction = "r" }))
-hl.bind(mod .. " + O", bolt.focus({ last = true }))
 
 -- Super+Ctrl: bolt onto the cursor to find it (hyprland/bolt.lua). On
 -- release of whichever of the two goes first (both mods are still held at
@@ -219,6 +218,7 @@ hl.bind("SUPER + SHIFT + Print", hl.dsp.exec_cmd(
 hl.bind(mod .. " + D", hl.dsp.exec_cmd("qs ipc call keytree toggle default"))
 hl.bind(mod .. " + Y", hl.dsp.exec_cmd("qs ipc call keytree toggle stator"))
 hl.bind(mod .. " + P", hl.dsp.exec_cmd("qs ipc call keytree toggle popups"))
+hl.bind(mod .. " + O", hl.dsp.exec_cmd("qs ipc call keytree toggle dirs"))
 hl.bind(mod .. " + B", hl.dsp.exec_cmd("qs ipc call keybinds toggle"))
 hl.bind(mod .. " + V", hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
 
