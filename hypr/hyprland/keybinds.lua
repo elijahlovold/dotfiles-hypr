@@ -241,15 +241,15 @@ hl.bind(mod .. " + ALT + Return", hl.dsp.exec_cmd("spotify-queue"), { release = 
 
 hl.bind("SUPER + grave", hl.dsp.exec_cmd('wtype -s 150 "$(date +%F)"'))
 
-hl.bind(mod .. " + C", hl.dsp.exec_cmd("wallpaper-picker"))
-hl.bind(mod .. " + CTRL + C", hl.dsp.exec_cmd("wallpaper-picker --stop"))
-hl.bind(mod .. " + CTRL + SHIFT + C", hl.dsp.exec_cmd("wallpaper-picker --clear"))
+hl.bind(mod .. " + C", hl.dsp.exec_cmd(wallpaper .. " ipc call wallpaper random"))
+hl.bind(mod .. " + CTRL + C", hl.dsp.exec_cmd(wallpaper .. " ipc call wallpaper stop"))
+hl.bind(mod .. " + CTRL + SHIFT + C", hl.dsp.exec_cmd(wallpaper .. " ipc call wallpaper clear"))
 
 -- Toggle dual monitors (DP-1 + DP-2) vs. solo third monitor (HDMI-A-1) - see toggle-monitors
 hl.bind(mod .. " + SHIFT + M", hl.dsp.exec_cmd("hypr-toggle-monitors"))
 
 hl.bind(mod .. " + U", bolt.exec("firefox --new-window https://www.stevenspass.com/the-mountain/mountain-conditions/mountain-cams.aspx"))
-hl.bind(mod .. " + SHIFT + U", hl.dsp.exec_cmd("wallpaper-picker --sp"))
+hl.bind(mod .. " + SHIFT + U", hl.dsp.exec_cmd(wallpaper .. " ipc call wallpaper stream"))
 
 hl.bind(mod .. " + SHIFT + P", hl.dsp.exec_cmd("rofimoji"))
 hl.bind(mod .. " + CTRL + P", hl.dsp.exec_cmd("password-picker"))

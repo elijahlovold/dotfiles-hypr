@@ -225,7 +225,12 @@ PanelWindow {
     function selectIndex(i) {
         if (i < 0 || i >= root.images.length)
             return;
-        Quickshell.execDetached([ImagePickerConfig.applyCommand, "--select", root.images[i].path]);
+        // The picked tile's center (global px) is where the wallpaper
+        // transition starts from - see quickshell-wall.
+        const tile = grid.itemAtIndex(i);
+        const p = tile ? tile.mapToItem(null, tile.width / 2, tile.height / 2) : null;
+        const origin = p ? Math.round(p.x + root.screen.x) + "," + Math.round(p.y + root.screen.y) : "";
+        Quickshell.execDetached(["qs", "-p", ImagePickerConfig.wallpaperShell, "ipc", "call", "wallpaper", "set", root.images[i].path, origin]);
         root.dismissed();
     }
 

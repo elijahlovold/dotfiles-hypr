@@ -6,9 +6,9 @@ import qs.modules.common
 
 // Click-through WlrLayer.Bottom surface holding the clock+weather card,
 // positioned anywhere on screen via DesktopOverlayStore's normalized nx/ny.
-// mpvpaper (the video wallpaper player in use here) defaults to
-// WlrLayer.Background, which sits below Bottom in the wlr layer-shell stack,
-// so this draws on top of the wallpaper without any extra configuration.
+// The video wallpaper (quickshell-wall) is on WlrLayer.Background, which
+// sits below Bottom in the wlr layer-shell stack, so this draws on top of
+// it without any extra configuration.
 //
 // Simplified single-widget version of zesis's DesktopWidget.qml - that one
 // is a generic host for an arbitrary catalog of desktop widgets (globe,

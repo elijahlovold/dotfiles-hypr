@@ -22,6 +22,7 @@ Singleton {
     // readonly property var videoExtensions: ["mp4", "webm", "mkv", "mov", "m4v"]
     readonly property var videoExtensions: []
 
-    // Called as: <applyCommand> --select <path>
-    readonly property string applyCommand: "wallpaper-picker"
+    // The wallpaper's Quickshell instance (../../../quickshell-wall); a pick
+    // goes to it as: qs -p <wallpaperShell> ipc call wallpaper set <path> <origin>
+    readonly property string wallpaperShell: "/home/elovold/.config/dotfiles-hypr/quickshell-wall"
 }

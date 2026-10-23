@@ -53,7 +53,6 @@ to_dual() {
     "
     move_workspaces "$SOLO" "$PRIMARY"
     hyprctl eval "hl.monitor({ output = '$SOLO', disabled = true })"
-    wallpaper-picker > /dev/null 2>&1 &
 }
 
 to_solo() {
@@ -66,7 +65,6 @@ to_solo() {
         hl.monitor({ output = '$PRIMARY', disabled = true })
         hl.monitor({ output = '$SECONDARY', disabled = true })
     "
-    pkill mpvpaper
 }
 
 if [ "$1" = "--reset" ]; then
