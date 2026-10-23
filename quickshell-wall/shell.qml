@@ -122,6 +122,18 @@ ShellRoot {
         }
     }
 
+    // Independent of the video: shown whenever the portrait screen is on.
+    Loader {
+        id: portraitLoader
+
+        readonly property ShellScreen screen: Quickshell.screens.find(s => s.name === WallConfig.portraitScreen) ?? null
+
+        active: portraitLoader.screen !== null
+        sourceComponent: PortraitWindow {
+            screen: portraitLoader.screen
+        }
+    }
+
     onCurrentChanged: persist.current = root.current
 
     // No reload popup over the desktop - same handling as the main shell.

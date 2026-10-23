@@ -1,0 +1,58 @@
+#!/bin/sh
+# The portrait monitor's wallpaper: Hyprland's stock wall0, cropped to
+# portrait and gradient-mapped through the current wallust palette, so it
+# matches whatever video is themed on the main screen. quickshell-wall's
+# PortraitWindow runs this whenever the palette changes and shows the result.
+#
+#   hypr-portrait-wall [palette.json] [out.png]
+#
+# Defaults: ~/.cache/quickshell/palette.json in, and
+# ~/.cache/quickshell/portrait-wallpaper.png out. Prints the output path.
+#
+# wall0 is near-monochrome, so its luminance alone carries the picture; the
+# ramp runs background -> dim tint -> color4 -> color13 (the shell's accent)
+# -> color15. The dim tint keeps the faint stripe pattern (3-15% luminance)
+# from collapsing into the background.
+set -eu
+
+CACHE=${XDG_CACHE_HOME:-"$HOME/.cache"}/quickshell
+PALETTE=${1:-"$CACHE/palette.json"}
+OUT=${2:-"$CACHE/portrait-wallpaper.png"}
+STOCK=/usr/share/hypr/wall0.png
+# 1080x1920 grey centre crop of STOCK, made once.
+CROP=$CACHE/portrait-wallpaper-src.png
+
+die() {
+    printf '%s\n' "hypr-portrait-wall: $*" >&2
+    exit 1
+}
+
+[ -f "$PALETTE" ] || die "no palette: $PALETTE"
+mkdir -p "$CACHE" "$(dirname -- "$OUT")"
+
+if [ ! -f "$CROP" ] || [ "$STOCK" -nt "$CROP" ]; then
+    [ -f "$STOCK" ] || die "missing $STOCK"
+    magick "$STOCK" -gravity center -crop 2430x4320+0+0 +repage \
+        -resize 1080x1920 -colorspace gray "$CROP.tmp.png"
+    mv -f "$CROP.tmp.png" "$CROP"
+fi
+
+color() {
+    c=$(grep "\"$1\"" "$PALETTE" | cut -d'"' -f4)
+    [ -n "$c" ] || die "$1 missing from $PALETTE"
+    printf '%s' "$c"
+}
+
+bg=$(color background)
+c4=$(color color4)
+dim=$(magick xc:"$bg" xc:"$c4" -fx "u*0.6+v*0.4" -format "#%[hex:p{0,0}]" info:)
+
+# Written beside OUT and moved into place, so a reader never sees half a file.
+tmp=$OUT.tmp.png
+trap 'rm -f "$tmp"' EXIT
+magick "$CROP" -level 3%,60%,1.3 \
+    \( xc:"$bg" xc:"$dim" xc:"$c4" xc:"$(color color13)" xc:"$(color color15)" \
+       +append -filter triangle -resize 256x1\! \) \
+    -clut "$tmp"
+mv -f "$tmp" "$OUT"
+printf '%s\n' "$OUT"

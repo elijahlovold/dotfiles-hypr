@@ -28,6 +28,15 @@ Singleton {
     readonly property var themeCommand: ["wallust", "run"]
     // `qs ipc call wallpaper clear` - back to the default theme.
     readonly property var clearThemeCommand: ["wallust", "cs", "default"]
+    // Renders portraitFile from paletteFile (scripts/hypr-portrait-wall).
+    readonly property var portraitCommand: ["hypr-portrait-wall", root.paletteFile, root.portraitFile]
+
+    // ---- Portrait screen ----
+    // Videos don't crop well to the rotated monitor, so it gets a static
+    // image instead - Hyprland's stock wallpaper recoloured with the
+    // palette, re-rendered whenever the palette changes (PortraitWindow).
+    readonly property string portraitScreen: "DP-1"
+    readonly property string portraitFile: root.cacheDir + "/quickshell/portrait-wallpaper.png"
 
     // ---- Playback ----
     // Output the wallpaper plays on. While it's disconnected or disabled
