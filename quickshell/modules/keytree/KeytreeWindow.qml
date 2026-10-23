@@ -51,6 +51,7 @@ PanelWindow {
         // than with the closing timings.
         root.closing = false;
         root.stack = [];
+        root.backBolts = [];
         root.current = root.virtualRoot;
         Qt.callLater(root.openingSwirl);
     }
@@ -150,6 +151,10 @@ PanelWindow {
     })
     property var current: root.virtualRoot
     property var stack: []
+    // Parallel to stack: each entry bolt's channel, reversed, so going back
+    // runs the same path from that folder's node to the center (null if no
+    // bolt was drawn going in).
+    property var backBolts: []
 
     readonly property var currentChildren: root.current.children ?? {}
     readonly property string currentLabel: root.current.label ?? ""
@@ -183,8 +188,8 @@ PanelWindow {
             const picked = root.menuPoint(radialView.nodeFinalCenter(root.items.findIndex(it => it.key === k)));
             root.stack = [...root.stack, root.current];
             root.current = node;
-            if (picked)
-                root.menuBolt("enter", root.menuPoint(radialView.center), picked);
+            const struck = picked && root.menuBolt("enter", root.menuPoint(radialView.center), picked);
+            root.backBolts = [...root.backBolts, struck ? menuBoltItem.geometry(true) : null];
         } else if (node.cmd) {
             // The picked node becomes the origin of the next bolt (bar
             // popup / app window opening) - see modules/bolt/Bolts.qml.
@@ -206,7 +211,14 @@ PanelWindow {
         if (root.stack.length > 0) {
             root.current = root.stack[root.stack.length - 1];
             root.stack = root.stack.slice(0, -1);
-            // Deferred so the parent level's nodes exist to start from.
+            const replay = root.backBolts[root.backBolts.length - 1];
+            root.backBolts = root.backBolts.slice(0, -1);
+            if (replay) {
+                root.menuBolt("back", null, null, replay);
+                return;
+            }
+            // No entry bolt to retrace: from a random node of the parent
+            // level, deferred so its nodes exist to start from.
             Qt.callLater(() => {
                 const from = root.menuPoint(radialView.nodeFinalCenter(Math.floor(Math.random() * root.items.length)));
                 if (from)
@@ -225,13 +237,17 @@ PanelWindow {
         return p ? radialView.mapToItem(menuBoltItem, p.x, p.y) : null;
     }
 
-    function menuBolt(kind, from, to) {
+    // Whether it struck. `replay`: a channel from menuBoltItem.geometry().
+    function menuBolt(kind, from, to, replay) {
         if (root.closing || root.searchMode || !Bolts.active("keytree") || !BoltConfig.keytree[kind])
-            return;
+            return false;
         if (kind === "swirl")
             menuBoltItem.strike({ path: Bolts.spiralPath(from, to, BoltConfig.keytree.swirlTurns), style: BoltConfig.styles.swirl });
+        else if (replay)
+            menuBoltItem.strike({ replay: replay, style: BoltConfig.styles.keytree });
         else
             menuBoltItem.strike({ from: from, to: to, style: BoltConfig.styles.keytree });
+        return true;
     }
 
     function openingSwirl() {

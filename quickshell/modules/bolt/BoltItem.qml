@@ -9,6 +9,8 @@ import qs.modules.theme
 //   { from, to, style }  - from `from` (null = a random point on the bottom
 //                          edge near `to`) to `to`
 //   { path, style }      - through explicit waypoints, ending at the last
+//   { replay, style }    - an earlier strike's exact channel, from
+//                          geometry() (reversed: it runs back the way it came)
 // timed and sized by `style` (a BoltConfig.styles entry). A new strike
 // replaces one still in flight. `finished` fires once it has faded out.
 //
@@ -48,10 +50,13 @@ Item {
     function strike(spec) {
         strikeAnim.stop();
         root.style = spec.style;
-        const end = spec.path ? spec.path[spec.path.length - 1] : spec.to;
+        const end = spec.replay ? spec.replay.main[spec.replay.main.length - 1] : spec.path ? spec.path[spec.path.length - 1] : spec.to;
         root.targetX = end.x;
         root.targetY = end.y;
-        if (spec.path)
+        if (spec.replay) {
+            root.mainBase = spec.replay.main;
+            root.forkBases = spec.replay.forks;
+        } else if (spec.path)
             root.generatePath(spec.path);
         else
             root.generate(spec.from);
@@ -59,6 +64,19 @@ Item {
         root.t = 0;
         root.frame();
         strikeAnim.start();
+    }
+
+    // The current strike's channel and forks, for strike({ replay }).
+    // Reversed, the head starts where it landed; forks keep their points and
+    // reattach at the same spot counted from the other end.
+    function geometry(reverse) {
+        const n = root.mainBase.length;
+        if (!reverse)
+            return { main: root.mainBase, forks: root.forkBases };
+        return {
+            main: root.mainBase.slice().reverse(),
+            forks: root.forkBases.map(f => ({ from: n - 1 - f.from, points: f.points }))
+        };
     }
 
     function randomSpread() {

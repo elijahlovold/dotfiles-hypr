@@ -68,7 +68,7 @@ Singleton {
         swirl: true,       // on open: spiral out from the center onto a random node
         swirlTurns: 1.5,
         enter: true,       // opening a submenu: center -> the picked node
-        back: true         // going back up: a random node -> center
+        back: true         // going back up: the entry bolt's path, reversed
     })
 
     readonly property var launch: ({
