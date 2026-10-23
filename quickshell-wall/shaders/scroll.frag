@@ -5,7 +5,8 @@
 // it. Seen from above, the roll shows the paper's back - the image, dimmed
 // and tinted, shaded round the cylinder - and it casts a soft shadow on both
 // sides. Run backwards it's the new video unrolling. It travels toward the
-// side `origin` is on, so unrolling starts there. Coordinates are in px;
+// side `origin` is on, so unrolling starts there. With lightning, bolts
+// crackle down the roll's edges. Coordinates are in px;
 // progress runs 0 -> 1.
 
 layout(location = 0) in vec2 qt_TexCoord0;
@@ -20,6 +21,7 @@ layout(std140, binding = 0) uniform buf {
     float cellSize;
     float seed;
     vec4 edgeColor;
+    float lightning;  // WallConfig.lightning: 0 skips the bolts entirely
 };
 layout(binding = 1) uniform sampler2D source;
 
@@ -27,6 +29,33 @@ const float PI = 3.14159265;
 const float RADIUS = 0.6;   // of cellSize
 const float SHADOW = 0.45;  // strongest shadow, alpha
 const float BACK = 0.45;    // brightness of the paper's back
+
+// ---- Lightning (only when `lightning` is on) ----
+float lhash(float x) {
+    return fract(sin(x * 127.1) * 43758.5453 + seed);
+}
+
+float lnoise(float x) {
+    float i = floor(x);
+    float f = fract(x);
+    return mix(lhash(i), lhash(i + 1.0), f * f * (3.0 - 2.0 * f));
+}
+
+// A jagged bolt along a line: x px across it, s px along it, `size` its
+// wander. Re-jags every 1/14 of the transition, so it crackles. Thin core
+// plus halo; 0 far from it.
+float boltLine(float x, float s, float size, float salt) {
+    float shape = floor(progress * 14.0) * 13.7 + salt;
+    float jag = (lnoise(s / (size * 2.5) + shape) - 0.5) * size
+              + (lnoise(s / (size * 0.6) + shape * 3.1) - 0.5) * size * 0.35;
+    float d = abs(x - jag);
+    float lw = max(1.0, resolution.y / 1440.0);
+    return (1.0 - smoothstep(0.5 * lw, 1.8 * lw, d)) + 0.5 * exp(-d / (size * 0.35));
+}
+
+vec3 boltColor() {
+    return mix(edgeColor.rgb, vec3(1.0), 0.6);
+}
 
 void main() {
     vec2 q = qt_TexCoord0 * resolution;
@@ -69,6 +98,13 @@ void main() {
         }
     }
 
+    if (lightning > 0.0) {
+        // Down the roll's leading edge and, fainter, its trailing one. Off
+        // screen with the roll at both ends.
+        float b = boltLine(a - (xc + r), q.y, r * 0.25, 3.0) + 0.5 * boltLine(a - (xc - r), q.y, r * 0.25, 9.0);
+        col.rgb += boltColor() * b;
+        col.a = clamp(col.a + b, 0.0, 1.0);
+    }
     // Premultiplied: the shadow is black, everything else opaque.
     fragColor = col * qt_Opacity;
 }

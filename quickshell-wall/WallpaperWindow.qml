@@ -191,6 +191,8 @@ PanelWindow {
         property real cellSize: height * WallConfig.cellSize
         property real seed: 0
         property color edgeColor: pal.color13
+        // Only shatter declares it; the other shaders ignore it.
+        property real lightning: WallConfig.lightning ? 1 : 0
 
         fragmentShader: root.effect === "fade" ? "" : Qt.resolvedUrl("shaders/" + root.effect + ".frag.qsb")
 

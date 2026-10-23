@@ -42,17 +42,19 @@ Singleton {
     // ---- Transitions ----
     // One of effects, or "random". Switchable live, until the next start:
     //   qs -p <this dir> ipc call wallpaper effect <name>
-    readonly property string effect: "shatter"
+    readonly property string effect: "pixelate"
     // Each but fade is shaders/<name>.frag.qsb.
     readonly property var effects: ["shatter", "dissolve", "scroll", "ripple", "blinds", "pixelate", "fade"]
     // "in": the effect brings the new video in over the old one (shaders
     // run backwards). "out": it takes the old one away, revealing the new.
     readonly property string direction: "in"
-    readonly property int durationMs: 600
+    readonly property int durationMs: 700
     // Effect scale, as a fraction of the screen height: shatter's shard
     // size, and the others' roll radius, wave, slat and block sizes scale
     // with it.
     readonly property real cellSize: 0.13
+    // Lightning effects for variosu shaders
+    readonly property bool lightning: true
 
     // WALL_STATS=1: log fps / frame gaps / loops every 5s (Stats.qml).
     readonly property bool stats: Quickshell.env("WALL_STATS") === "1"
