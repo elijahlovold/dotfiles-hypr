@@ -61,7 +61,9 @@ PanelWindow {
         showDirs: false
         showFiles: true
         caseSensitive: false
-        onCountChanged: root.rebuildImages()
+        // Deferred, so a listing that lands in several count steps rebuilds
+        // once.
+        onCountChanged: Qt.callLater(root.rebuildImages)
     }
 
     property var images: []
@@ -99,7 +101,7 @@ PanelWindow {
                 continue;
             list.push({
                 path: path,
-                thumbPath: "",
+                thumbPath: root.thumbFor(path),
                 ready: false
             });
         }
@@ -136,7 +138,7 @@ PanelWindow {
         'image_stale=()',
         'video_stale=()',
         'for f in "$@"; do',
-        '    b="$(basename "$f")"',
+        '    b="${f##*/}"',
         '    thumb="$cachedir/${b%.*}.png"',
         '    if [ ! -f "$thumb" ] || [ "$f" -nt "$thumb" ]; then',
         '        if [[ "$f" =~ $video_re ]]; then',
@@ -159,7 +161,7 @@ PanelWindow {
         '    i=$((i + chunk))',
         'done',
         'for f in "${video_stale[@]}"; do',
-        '    b="$(basename "$f")"',
+        '    b="${f##*/}"',
         '    thumb="$cachedir/${b%.*}.png"',
         '    ffmpeg -y -ss 1 -i "$f" -vframes 1 -vf "scale=${size}:-1" "$thumb" >/dev/null 2>&1',
         '    echo "FILE $f"',
@@ -178,14 +180,29 @@ PanelWindow {
         genProc.running = true;
     }
 
-    function markReady(path) {
+    function thumbFor(path) {
         const b = path.split("/").pop();
         const dot = b.lastIndexOf(".");
-        const noExt = dot > 0 ? b.slice(0, dot) : b;
-        const thumbPath = ImagePickerConfig.cacheDir + "/" + noExt + ".png";
-        root.images = root.images.map(img => img.path === path ? {
+        return ImagePickerConfig.cacheDir + "/" + (dot > 0 ? b.slice(0, dot) : b) + ".png";
+    }
+
+    // Each reassignment of `images` resets the whole GridView (every tile
+    // delegate and its Image rebuilt), so "ready" lines are collected and
+    // applied once per batch the script's output arrives in - not once per
+    // file, which was 90 resets per open with a warm cache.
+    property var pendingReady: ({})
+
+    function markReady(path) {
+        root.pendingReady[path] = true;
+        Qt.callLater(root.flushReady);
+    }
+
+    function flushReady() {
+        const done = root.pendingReady;
+        root.pendingReady = {};
+        root.images = root.images.map(img => done[img.path] ? {
             path: img.path,
-            thumbPath: thumbPath,
+            thumbPath: img.thumbPath,
             ready: true
         } : img);
     }
