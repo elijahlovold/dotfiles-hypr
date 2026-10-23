@@ -122,13 +122,14 @@ ShellRoot {
         }
     }
 
-    // Independent of the video: shown whenever the portrait screen is on.
+    // Up alongside the video: stop/clear drop it, any set/random/stream
+    // brings it back (re-rendered from the palette as it loads).
     Loader {
         id: portraitLoader
 
         readonly property ShellScreen screen: Quickshell.screens.find(s => s.name === WallConfig.portraitScreen) ?? null
 
-        active: portraitLoader.screen !== null
+        active: portraitLoader.screen !== null && root.target !== ""
         sourceComponent: PortraitWindow {
             screen: portraitLoader.screen
         }
@@ -199,7 +200,8 @@ ShellRoot {
         function stream(): void {
             root.show(WallConfig.streamUrl, "");
         }
-        // Unloads the players and the surface; any set/random/stream resumes.
+        // Unloads the players and both surfaces (portrait too); any
+        // set/random/stream resumes.
         function stop(): void {
             root.stop();
         }

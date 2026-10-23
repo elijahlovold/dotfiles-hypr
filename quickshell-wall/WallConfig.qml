@@ -35,6 +35,7 @@ Singleton {
     // Videos don't crop well to the rotated monitor, so it gets a static
     // image instead - Hyprland's stock wallpaper recoloured with the
     // palette, re-rendered whenever the palette changes (PortraitWindow).
+    // Shown while a video is: `wallpaper stop`/`clear` drop it too.
     readonly property string portraitScreen: "DP-1"
     readonly property string portraitFile: root.cacheDir + "/quickshell/portrait-wallpaper.png"
 
