@@ -36,7 +36,8 @@ ShellRoot {
     // Still last passed to wallust, so re-showing the same video (screen
     // re-enabled, a reload) doesn't re-theme.
     property alias themed: persist.themed
-    property alias effect: persist.effect
+    // `ipc call wallpaper effect` wins until WallConfig.effect is edited.
+    readonly property string effect: persist.effectOverride || WallConfig.effect
 
     readonly property ShellScreen screen: Quickshell.screens.find(s => s.name === WallConfig.screen) ?? null
 
@@ -146,9 +147,17 @@ ShellRoot {
         property bool started: false
         property string current: ""
         property string themed: ""
-        property string effect: WallConfig.effect
+        // Set by `ipc call wallpaper effect`; "" = use WallConfig.effect.
+        property string effectOverride: ""
+        // WallConfig.effect as of the last load, to spot an edit to it.
+        property string configEffect: WallConfig.effect
 
         onLoaded: {
+            // Editing WallConfig.effect (which reloads) beats an earlier
+            // IPC choice - otherwise the edit would do nothing.
+            if (persist.configEffect !== WallConfig.effect)
+                persist.effectOverride = "";
+            persist.configEffect = WallConfig.effect;
             if (persist.started) {
                 // A reload: back to what was playing (nothing, if stopped).
                 if (persist.current)
@@ -192,7 +201,7 @@ ShellRoot {
         function effect(name: string): string {
             if (name !== "random" && !WallConfig.effects.includes(name))
                 return "unknown effect - one of: random " + WallConfig.effects.join(" ");
-            root.effect = name;
+            persist.effectOverride = name;
             return name;
         }
         function current(): string {
