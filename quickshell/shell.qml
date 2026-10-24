@@ -10,7 +10,7 @@ import qs.modules.reticle
 import qs.modules.draw
 import qs.modules.notifications
 import qs.modules.clipboard
-import qs.modules.bolt
+import qs.modules.overlay
 import qs.modules.gif
 import qs.modules.screens
 
@@ -30,6 +30,7 @@ ShellRoot {
         }
     }
 
+    OverlayHost {}
     Bar {}
     Keytree {}
     ImagePicker {}
@@ -40,7 +41,6 @@ ShellRoot {
     Draw {}
     Notifications {}
     Clipboard {}
-    Bolt {}
     Gif {}
     Screens {}
 }

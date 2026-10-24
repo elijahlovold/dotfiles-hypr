@@ -2,26 +2,27 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Wayland
 import qs.modules.theme
+import qs.modules.overlay
 import qs.modules.bolt
 import qs.modules.common
 
-// QML/quickshell port of keytree's C++ KeyTreeModel + Main.qml. Runs as an
-// overlay-layer surface covering the whole screen (transparent) so the
-// radial menu can be centered without wlr-layer-shell's edge-anchoring -
-// same trick as ii/modules/ii/cheatsheet/Cheatsheet.qml. The whole surface
-// takes input (see `backdrop`), so the pointer is always over keytree and
-// never over a window the compositor could hand focus to.
-PanelWindow {
+// QML/quickshell port of keytree's C++ KeyTreeModel + Main.qml. A modal
+// OverlaySurface covering the focused screen (modules/overlay): while it's
+// interactive the overlay host holds Exclusive keyboard focus, so Hyprland
+// refuses focus to every window (follow_mouse, refocus on unmap, newly
+// mapped apps) until it lets go - nothing has to notice focus loss and win
+// it back. Dismissal is explicit instead: Escape, a launch, a click on
+// `backdrop`, or another surface taking the keyboard. Emits `dismissed`
+// once the close animation has played.
+OverlaySurface {
     id: root
 
     required property string configName
-    signal dismissed
 
-    // Reject (Escape/back-at-root/focus-loss) and launch both go through
+    // Reject (Escape/back-at-root/outside click) and launch both go through
     // this instead of emitting `dismissed` directly, so RadialView's node
-    // animations get a chance to play in reverse before the window (and
+    // animations get a chance to play in reverse before the panel (and
     // everything in it) actually gets torn down by Keytree.qml's Loader.
     // Search mode has no entrance animation to reverse, so it still closes
     // immediately.
@@ -56,45 +57,23 @@ PanelWindow {
         Qt.callLater(root.openingSwirl);
     }
 
+    function dismiss() {
+        root.requestClose();
+    }
+
     Timer {
         id: closeTimer
         interval: radialView.closeWaitMs
         onTriggered: root.dismissed()
     }
 
-    anchors {
-        top: true
-        bottom: true
-        left: true
-        right: true
-    }
-    exclusionMode: ExclusionMode.Ignore
-    exclusiveZone: 0
-    color: "transparent"
-    WlrLayershell.namespace: "quickshell:keytree"
-    WlrLayershell.layer: WlrLayer.Overlay
-    // Exclusive while open: Hyprland then refuses keyboard focus to every
-    // window (follow_mouse, refocus on window/layer unmap, layout changes
-    // from `hyprctl eval`, newly mapped apps) until this surface lets go -
-    // nothing has to notice focus loss and win it back. Dismissal is
-    // explicit instead: Escape, a launch, or a click on `backdrop`.
-    // Dropped to None (and input to pass-through) as soon as the menu
-    // starts closing, so neither keys nor clicks are swallowed while the
-    // close animation plays.
-    //
-    // (Previously OnDemand + HyprlandFocusGrab + an activeFocus watcher on
-    // debounce timers, with input masked to the disc. Hyprland ends a focus
-    // grab on any internal refocus - window/layer unmap, tiled resize -
-    // while the pointer is over a surface outside the grab, which with the
-    // mask meant anywhere off the disc, so the menu sporadically closed
-    // itself depending on where the cursor was and what else was happening.)
+    // Keyboard and input are dropped as soon as the menu starts closing,
+    // so neither keys nor clicks are swallowed while the close animation
+    // plays - and a launched app maps with nothing holding focus.
     readonly property bool interactive: !root.closing && !root.launched
-    WlrLayershell.keyboardFocus: root.interactive ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    // null = the whole surface takes input; an empty region = none of it.
-    mask: root.interactive ? null : noInput
-    Region {
-        id: noInput
-    }
+    modal: root.interactive
+    // Above the bar popups.
+    z: 1
 
     // Set when a node/search result runs its command. Gives up keyboard
     // focus immediately (search mode skips the close animation, so this
@@ -103,7 +82,6 @@ PanelWindow {
     property bool launched: false
 
     function launch(cmd) {
-        console.info("[focusdbg]", Date.now() % 100000, "keytree launch", cmd); // FOCUSDBG
         root.launched = true;
         Quickshell.execDetached(["sh", "-c", cmd]);
     }
@@ -115,6 +93,7 @@ PanelWindow {
     MouseArea {
         id: backdrop
         anchors.fill: parent
+        enabled: root.interactive
         acceptedButtons: Qt.AllButtons
         onPressed: mouse => {
             if (contentItem.contains(mapToItem(contentItem, mouse.x, mouse.y)))
@@ -124,6 +103,8 @@ PanelWindow {
         }
     }
 
+    // // (Stale: from when keytree was its own layer surface - it now shares
+    // // the overlay host's window, so this would blur through its window.)
     // // Real compositor-side blur behind the disc, matched by the
     // // `hl.layer_rule` for namespace "quickshell:keytree" in
     // // ~/hypr/hyprland/rules.lua (blur + ignore_alpha - without ignore_alpha
@@ -539,16 +520,18 @@ PanelWindow {
         visible: !root.searchMode
     }
 
-    Component.onCompleted: {
+    // Placed on its screen's overlay host (OverlaySurface).
+    onHostChanged: {
+        // host.screen, not `screen`: that binding may not have caught up yet.
+        const s = root.host?.screen;
+        if (!s)
+            return;
         // Start the pointer on the menu's center so it's ready for mouse
         // use. Cosmetic only - focus doesn't depend on where the cursor is.
         Quickshell.execDetached(["hyprctl", "dispatch", "movecursor",
-            String(Math.round(root.screen.x + root.screen.width / 2)),
-            String(Math.round(root.screen.y + root.screen.height / 2))]);
-        contentItem.forceActiveFocus();
+            String(Math.round(s.x + s.width / 2)),
+            String(Math.round(s.y + s.height / 2))]);
         // After the first frame's layout, so the nodes it aims at exist.
         Qt.callLater(root.openingSwirl);
     }
-
-    Component.onDestruction: console.info("[focusdbg]", Date.now() % 100000, "keytree destroyed") // FOCUSDBG
 }

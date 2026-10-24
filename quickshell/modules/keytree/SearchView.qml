@@ -5,7 +5,7 @@ import qs.modules.theme
 // Ported from keytree/qml/SearchView.qml. The original read `keyTree.*`
 // (search state) and `colorScheme.*` as C++-injected context properties;
 // this takes the same search state as explicit properties from
-// KeytreeWindow and reads Theme directly.
+// KeytreePanel and reads Theme directly.
 Item {
     id: root
     anchors.fill: parent

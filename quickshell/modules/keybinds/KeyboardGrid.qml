@@ -6,9 +6,9 @@ import qs.modules.theme
 import "KeybindData.js" as KB
 
 // Physical-keyboard view: color-coded by binding density under the current
-// modifier layer / submap filter (set on KeybindsWindow, passed down),
+// modifier layer / submap filter (set on KeybindsPanel, passed down),
 // click a key to inspect all its bindings. Only instantiated while selected
-// in KeybindsWindow's view switcher (see the RAM-comparison note there).
+// in KeybindsPanel's view switcher (see the RAM-comparison note there).
 Item {
     id: root
 
@@ -16,7 +16,7 @@ Item {
     required property var modFilters
     required property string activeSubmap
 
-    // Emitted right after handing a bind off to $EDITOR - KeybindsWindow
+    // Emitted right after handing a bind off to $EDITOR - KeybindsPanel
     // closes the overlay on this so it doesn't sit on top of the editor.
     signal openedInEditor
 
@@ -36,7 +36,7 @@ Item {
     readonly property int keyGap: 4
 
     // Modifier filter is per-mod include/exclude (see setModFilter on
-    // KeybindsWindow), "contains" rather than exact match: an "include" for
+    // KeybindsPanel), "contains" rather than exact match: an "include" for
     // Shift shows every bind with Shift (e.g. SUPER+SHIFT+H), not only binds
     // using Shift alone - almost nothing in this config uses a bare
     // modifier with no Super, so exact-match made the filter look broken.
@@ -73,7 +73,7 @@ Item {
     readonly property int usedKeyCount: KB.COUNTABLE_KEY_IDS.filter(id => (root.bindsBySlot[id] || []).length > 0).length
     readonly property int freeKeyCount: KB.COUNTABLE_KEY_IDS.length - root.usedKeyCount
 
-    // Called from KeybindsWindow's Keys.onPressed with every key that isn't
+    // Called from KeybindsPanel's Keys.onPressed with every key that isn't
     // already claimed (Escape). Returns true if it was consumed.
     function handleKeyEvent(event) {
         if (root.focusRegion === "list") {

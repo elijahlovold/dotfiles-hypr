@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Services.Pipewire
 import qs.modules.theme
+import qs.modules.overlay
 
 // Output/input device picker + volume, right-click-toggled open from
 // Sound.qml. All native Pipewire service state (same as MusicPreview's
@@ -32,9 +33,9 @@ PillPopup {
     // hold) plus a short scrolling history strip.
     //
     // Fixed height regardless of channel count: the channel list only
-    // arrives once the monitor connects, after the popup surface is already
-    // mapped, and popup surfaces don't reliably resize after mapping - so
-    // rows share a fixed block instead of each adding height.
+    // arrives once the monitor connects, after the popup has dropped open,
+    // and a card that grows then would jump under the cursor - so rows
+    // share a fixed block instead of each adding height.
     component LevelMeter: Column {
         id: meter
 

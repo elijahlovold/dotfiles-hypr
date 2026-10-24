@@ -11,9 +11,9 @@ Scope {
 
     property string activeConfig: ""
 
-    // A window still playing its close animation counts as closed - so a
+    // A panel still playing its close animation counts as closed - so a
     // quick reopen replaces it rather than toggling it shut.
-    readonly property bool isOpen: root.activeConfig.length > 0 && !(windowLoader.item?.closing ?? false)
+    readonly property bool isOpen: root.activeConfig.length > 0 && !(panelLoader.item?.closing ?? false)
 
     function toggle(config) {
         const name = config && config.length > 0 ? config : "default";
@@ -27,10 +27,10 @@ Scope {
         const name = config && config.length > 0 ? config : "default";
         if (root.isOpen && root.activeConfig === name)
             return;
-        // A window that's closing, or showing another config, is reused:
+        // A panel that's closing, or showing another config, is reused:
         // reopen() cancels its close and restarts it at the root level on
-        // the same surface (see KeytreeWindow.reopen).
-        const existing = windowLoader.item;
+        // the same surface (see KeytreePanel.reopen).
+        const existing = panelLoader.item;
         root.activeConfig = name;
         if (existing)
             existing.reopen();
@@ -55,15 +55,15 @@ Scope {
     }
 
     Loader {
-        id: windowLoader
+        id: panelLoader
         active: root.activeConfig.length > 0
-        sourceComponent: KeytreeWindow {
-            id: win
+        sourceComponent: KeytreePanel {
+            id: panel
             configName: root.activeConfig
-            // Ignore a late dismiss from a window that's already been
+            // Ignore a late dismiss from a panel that's already been
             // replaced (its close timer can outlive the swap).
             onDismissed: {
-                if (windowLoader.item === win)
+                if (panelLoader.item === panel)
                     root.close();
             }
         }

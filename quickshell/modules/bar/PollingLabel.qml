@@ -59,17 +59,11 @@ Text {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         hoverEnabled: root.popupComponent !== null
         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-        onEntered: {
-            closeTimer.stop();
-            hoverOpenTimer.restart();
-        }
-        onExited: {
-            hoverOpenTimer.stop();
-            closeTimer.restart();
-        }
+        onEntered: opener.hoverEntered()
+        onExited: opener.hoverExited()
         onClicked: mouse => {
             if (mouse.button === Qt.RightButton && root.popupComponent !== null) {
-                root.previewOpen = !root.previewOpen;
+                opener.toggle();
                 return;
             }
             const cmd = mouse.button === Qt.LeftButton ? root.leftClickCommand : root.rightClickCommand;
@@ -80,44 +74,11 @@ Text {
         }
     }
 
-    // Opens on hover after a short dwell, so sweeping the cursor across the
-    // bar doesn't flash every popup on the way past. Clicks still toggle.
-    Timer {
-        id: hoverOpenTimer
-        interval: 50
-        onTriggered: root.previewOpen = true
-    }
-
-    // Grace period so crossing the small gap between the label and the
-    // popup below it (or moving between the two) doesn't cause a flicker
-    // close - only actually closes if neither is hovered once it fires.
-    Timer {
-        id: closeTimer
-        interval: 250
-        onTriggered: {
-            if (!(previewLoader.item?.hovered ?? false))
-                root.previewOpen = false;
-        }
-    }
-
-    PopupTarget {
-        name: root.popupComponent !== null ? root.popupName : ""
+    PopupOpener {
+        id: opener
         widget: root
-    }
-
-    Loader {
-        id: previewLoader
-        active: root.popupComponent !== null && root.previewOpen
-        sourceComponent: root.popupComponent
-    }
-
-    Connections {
-        target: previewLoader.item
-        function onHoveredChanged() {
-            if (previewLoader.item.hovered)
-                closeTimer.stop();
-            else
-                closeTimer.restart();
-        }
+        name: root.popupComponent !== null ? root.popupName : ""
+        available: root.popupComponent !== null
+        popup: root.popupComponent
     }
 }

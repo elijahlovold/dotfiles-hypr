@@ -7,7 +7,7 @@ import Quickshell.Io
 //   qs ipc call gif toggle
 //   qs ipc call gif open <video>      start on a specific file
 //
-// The ffmpeg export lives here rather than in GifWindow so closing the
+// The ffmpeg export lives here rather than in GifPanel so closing the
 // window mid-export doesn't kill it; the window only shows its progress.
 Scope {
     id: root
@@ -137,7 +137,7 @@ Scope {
 
     Loader {
         active: root.open
-        sourceComponent: GifWindow {
+        sourceComponent: GifPanel {
             exporter: root
             initialFile: root.initialFile
             onDismissed: root.open = false

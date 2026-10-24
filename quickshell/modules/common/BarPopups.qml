@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import qs.modules.bolt
+import qs.modules.overlay
 
 // Keyboard/IPC entry point for opening bar popups by name - e.g. the
 // keytree "popups" config (Super+P) runs `qs ipc call barpopup open sound`.
@@ -55,6 +56,9 @@ Singleton {
 
         root.pending = target;
         root.pendingPill = pill;
+        // Keep the keyboard on the overlay through the bolt's flight, so
+        // a summon from keytree hands focus straight to the popup.
+        Overlays.hold(target.screenName);
         const origin = Bolts.takeOrigin();
         if (!Bolts.active("popup")) {
             root.land();
@@ -64,27 +68,6 @@ Singleton {
         impactTimer.interval = BoltConfig.styles.popup.travelMs;
         Bolts.strike(origin, Bolts.toGlobal(target.screenName, hit.x, hit.y), "popup");
         impactTimer.restart();
-    }
-
-    // True for a moment after a popup launches its own window: the bar
-    // drops its keyboard interactivity to None (Bar.qml) so it can't keep
-    // the keyboard the popup's focus grab handed back to it - Hyprland
-    // won't move focus off a focused layer when a window maps
-    // (misc:layers_hog_keyboard_focus), so the new window would open
-    // unfocused. Once the bar has let go, restoring OnDemand doesn't take
-    // focus back (that only happens on a click), so the window only needs
-    // to cover that hand-off, not the app's startup.
-    property bool yieldFocus: false
-
-    function yieldKeyboard() {
-        root.yieldFocus = true;
-        yieldTimer.restart();
-    }
-
-    Timer {
-        id: yieldTimer
-        interval: 1000
-        onTriggered: root.yieldFocus = false
     }
 
     property var pending: null
@@ -99,6 +82,8 @@ Singleton {
             root.pending.widget.previewOpen = true;
         root.pending = null;
         root.pendingPill = null;
+        // The popup has claimed the keyboard by now (if it could open).
+        Overlays.unhold();
     }
 
     Timer {

@@ -1,34 +1,19 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
-import Quickshell.Wayland
 import qs.modules.theme
+import qs.modules.overlay
 
-// Same overlay-layer-surface chrome as KeytreeWindow.qml / ImagePickerWindow.qml.
-// Hosts a KeybindService instance (fetches `hyprctl binds -j` once on open)
-// plus shared filter state (submap/modifier), read by KeyboardGrid.
-PanelWindow {
+// A modal OverlaySurface (modules/overlay) centered on the focused screen,
+// like KeytreePanel.qml / ImagePickerPanel.qml. Hosts a KeybindService
+// instance (fetches `hyprctl binds -j` once on open) plus shared filter
+// state (submap/modifier), read by KeyboardGrid.
+OverlaySurface {
     id: root
 
-    signal dismissed
-
-    anchors {
-        top: true
-        bottom: true
-        left: true
-        right: true
-    }
-    exclusionMode: ExclusionMode.Ignore
-    exclusiveZone: 0
-    color: "transparent"
-    WlrLayershell.namespace: "quickshell:keybinds"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
-
-    mask: Region {
-        item: contentItem
-    }
+    modal: true
+    inputItem: contentItem
+    z: 1
 
     KeybindService {
         id: service
@@ -51,20 +36,16 @@ PanelWindow {
         root.modFilters = updated;
     }
 
-    Component.onCompleted: contentItem.forceActiveFocus()
-
     Item {
         id: contentItem
         anchors.centerIn: parent
-        width: Math.min(920, root.screen.width - 80)
-        height: Math.min(700, root.screen.height - 80)
+        width: Math.min(920, (root.screen?.width ?? 0) - 80)
+        height: Math.min(700, (root.screen?.height ?? 0) - 80)
         focus: true
 
-        // Deliberately no dismiss-on-focus-loss here (unlike ImagePickerWindow)
-        // - under WlrKeyboardFocus.OnDemand, the pointer merely leaving the
-        // panel's screen region was enough to drop activeFocus and auto-close
-        // it. Closing is Escape / the X button only. Everything else gets
-        // routed to the grid's own key-selection / list-navigation handling.
+        // Closing is Escape, the X button, or a click off the panel.
+        // Everything else gets routed to the grid's own key-selection /
+        // list-navigation handling.
         Keys.onPressed: event => {
             if (event.key === Qt.Key_Escape) {
                 root.dismissed();

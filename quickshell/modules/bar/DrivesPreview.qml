@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.modules.theme
+import qs.modules.overlay
 
 // Drive/phone list popup, opened from Drives.qml. Clicking a row mounts it
 // if needed and opens a terminal there; the trailing icons unmount / eject.

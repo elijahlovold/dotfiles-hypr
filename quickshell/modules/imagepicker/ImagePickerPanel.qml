@@ -3,44 +3,30 @@ import QtQuick
 import Qt.labs.folderlistmodel
 import Quickshell
 import Quickshell.Io
-import Quickshell.Wayland
 import qs.modules.theme
 import qs.modules.bolt
+import qs.modules.overlay
 
 // Grid-tile wallpaper picker, replacing an nsxiv-based flow. Directory
 // listing via FolderListModel (native, no subprocess). Thumbnails are
 // generated once via vipsthumbnail into a persistent disk cache keyed by
 // filename (single flat directory, so basenames are already unique) and
 // reused on every subsequent open - only new/changed files regenerate.
-// Same overlay-layer-surface trick as KeytreeWindow.qml for centering.
-PanelWindow {
+// A modal OverlaySurface (modules/overlay) centered on the focused screen,
+// like KeytreePanel.qml.
+OverlaySurface {
     id: root
 
-    signal dismissed
+    modal: true
+    inputItem: contentItem
+    z: 1
 
-    anchors {
-        top: true
-        bottom: true
-        left: true
-        right: true
-    }
-    exclusionMode: ExclusionMode.Ignore
-    exclusiveZone: 0
-    color: "transparent"
-    WlrLayershell.namespace: "quickshell:imagepicker"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
-
-    mask: Region {
-        item: contentItem
-    }
-
-    // ── Window geometry ────────────────────────────────────────────────────────
-    // The window is sized to a whole number of tile columns/rows rather than
+    // ── Panel geometry ─────────────────────────────────────────────────────────
+    // The panel is sized to a whole number of tile columns/rows rather than
     // an arbitrary screen fraction, so the grid fills exactly to its last
     // full tile with no leftover partial-cell gap on the right or bottom.
     // ~72%/78% of the screen is the target size; columns/rows round to
-    // whatever whole tile count lands closest to that, then the window
+    // whatever whole tile count lands closest to that, then the panel
     // shrinks to exactly fit them (clamped so it can never exceed the
     // actual screen even if rounding would overshoot).
     readonly property int cellW: ImagePickerConfig.tileSize + 10
@@ -48,8 +34,10 @@ PanelWindow {
     readonly property int panelMargin: 18
     readonly property int chrome: panelMargin * 2
 
-    readonly property int columns: Math.max(1, Math.min(Math.round((root.screen.width * 0.72 - chrome) / cellW), Math.floor((root.screen.width - chrome) / cellW)))
-    readonly property int rows: Math.max(1, Math.min(Math.round((root.screen.height * 0.78 - chrome) / cellH), Math.floor((root.screen.height - chrome) / cellH)))
+    readonly property int screenWidth: root.screen?.width ?? 0
+    readonly property int screenHeight: root.screen?.height ?? 0
+    readonly property int columns: Math.max(1, Math.min(Math.round((root.screenWidth * 0.72 - chrome) / cellW), Math.floor((root.screenWidth - chrome) / cellW)))
+    readonly property int rows: Math.max(1, Math.min(Math.round((root.screenHeight * 0.78 - chrome) / cellH), Math.floor((root.screenHeight - chrome) / cellH)))
 
     // ── Directory listing ─────────────────────────────────────────────────────
     FolderListModel {
@@ -251,25 +239,12 @@ PanelWindow {
         root.dismissed();
     }
 
-    // ── Overlay chrome (mirrors KeytreeWindow.qml) ────────────────────────────
-    Component.onCompleted: {
-        Quickshell.execDetached(["hyprctl", "dispatch", "movecursor",
-            String(Math.round(root.screen.x + root.screen.width / 2)),
-            String(Math.round(root.screen.y + root.screen.height / 2))]);
-        contentItem.forceActiveFocus();
-    }
-
     Item {
         id: contentItem
         anchors.centerIn: parent
         width: root.columns * root.cellW + root.chrome
         height: root.rows * root.cellH + root.chrome
         focus: true
-
-        onActiveFocusChanged: {
-            if (!activeFocus)
-                root.dismissed();
-        }
 
         // Set by a bare "g" press, consumed by the following "g"/"m" to form
         // the gg/gm two-key sequences; cleared on timeout or any other key.

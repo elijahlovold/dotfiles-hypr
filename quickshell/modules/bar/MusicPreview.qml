@@ -5,6 +5,7 @@ import Quickshell.Widgets
 import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
 import qs.modules.theme
+import qs.modules.overlay
 
 // Expanded "now playing" card, right-click-toggled open from Music.qml.
 // Circular art with a glow ring while playing, marquee title, and device

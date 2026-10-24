@@ -4,8 +4,8 @@ import QtQuick.Shapes
 import qs.modules.theme
 
 // One lightning bolt renderer, drawn in this item's own coordinates - use it
-// directly inside any window (KeytreeWindow does), or via BoltWindow's
-// fullscreen overlay for Bolts.strike(). strike(spec) with
+// directly inside any item (KeytreePanel does); the OverlayHost's full-screen
+// one draws Bolts.strike() (modules/overlay). strike(spec) with
 //   { from, to, style }  - from `from` (null = a random point on the bottom
 //                          edge near `to`) to `to`
 //   { path, style }      - through explicit waypoints, ending at the last

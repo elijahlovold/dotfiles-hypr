@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import qs.modules.theme
+import qs.modules.overlay
 
 // Dropdown list, opened from ThemeSwitcherWidget.qml. Reads
 // ThemeManager.themes directly so adding a theme name there is the only

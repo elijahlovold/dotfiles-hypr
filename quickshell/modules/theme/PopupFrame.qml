@@ -38,7 +38,7 @@ import qs.modules.theme
 // extracted once a second independent copy of the same shapes showed up,
 // per this codebase's general bias against speculative abstraction.
 //
-// ClipboardWindow.qml is NOT ported to this - it's a bigger, bespoke
+// ClipboardPanel.qml is NOT ported to this - it's a bigger, bespoke
 // picker window with its own bigger per-theme skins (scroll+chains for
 // Medieval, etc) that predate this component and don't fit the small-popup
 // card shape this exists for.
@@ -180,7 +180,7 @@ Item {
 
     // ── Medieval ──────────────────────────────────────────────────────────
     // Thicker parchment-binding border plus small "wax seal" dots at the
-    // top corners - the same visual vocabulary as ClipboardWindow.qml's
+    // top corners - the same visual vocabulary as ClipboardPanel.qml's
     // Medieval scroll skin, scaled down for a small popup card rather than
     // a full scroll surface.
     Component {

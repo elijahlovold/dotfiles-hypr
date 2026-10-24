@@ -40,55 +40,17 @@ Item {
         anchors.topMargin: -Theme.barHeight
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onEntered: {
-            closeTimer.stop();
-            hoverOpenTimer.restart();
-        }
-        onExited: {
-            hoverOpenTimer.stop();
-            closeTimer.restart();
-        }
-        onClicked: root.previewOpen = !root.previewOpen
+        onEntered: opener.hoverEntered()
+        onExited: opener.hoverExited()
+        onClicked: opener.toggle()
     }
 
-    // Short dwell so sweeping across the bar doesn't flash the popup.
-    Timer {
-        id: hoverOpenTimer
-        interval: 50
-        onTriggered: root.previewOpen = true
-    }
-
-    // Grace period for crossing from the pill into the popup.
-    Timer {
-        id: closeTimer
-        interval: 250
-        onTriggered: {
-            if (!(previewLoader.item?.hovered ?? false))
-                root.previewOpen = false;
-        }
-    }
-
-    // Keyboard/IPC open: qs ipc call barpopup open sysmon
-    PopupTarget {
-        name: "sysmon"
+    PopupOpener {
+        id: opener
         widget: root
-    }
-
-    Loader {
-        id: previewLoader
-        active: root.previewOpen
-        sourceComponent: SysMonPreview {
+        name: "sysmon"
+        popup: SysMonPreview {
             anchorItem: root
-        }
-    }
-
-    Connections {
-        target: previewLoader.item
-        function onHoveredChanged() {
-            if (previewLoader.item.hovered)
-                closeTimer.stop();
-            else
-                closeTimer.restart();
         }
     }
 }

@@ -36,8 +36,10 @@ hl.window_rule({
     size = { "(monitor_w*0.90)", "(monitor_h*0.70)" },
 })
 
+-- -- (Stale: keytree now lives in the shared "quickshell:overlay" layer, so
+-- -- this namespace no longer exists.)
 -- -- Real compositor blur for Keytree's disc (see
--- -- quickshell/modules/keytree/KeytreeWindow.qml's BackgroundEffect.blurRegion).
+-- -- quickshell/modules/keytree/KeytreePanel.qml's BackgroundEffect.blurRegion).
 -- -- ignore_alpha is required: the disc content is a mostly-transparent tint
 -- -- rectangle, and without it Hyprland renders that as an opaque fallback
 -- -- square instead of blurring through it.
@@ -47,9 +49,10 @@ hl.window_rule({
 --     ignore_alpha = 0.01,
 -- })
 
--- Lightning strike overlay (quickshell/modules/bolt) - strikes last
--- ~200-350ms, so the default layersIn fade would eat most of them.
+-- Quickshell overlay host (quickshell/modules/overlay) - bolts, bar popups,
+-- keytree and the other panels. Strikes last ~200-350ms, so the default
+-- layersIn fade would eat most of them; everything in it animates itself.
 hl.layer_rule({
-    match = { namespace = "^quickshell:bolt$" },
+    match = { namespace = "^quickshell:overlay$" },
     no_anim = true,
 })

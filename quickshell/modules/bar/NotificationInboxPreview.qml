@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Widgets
 import qs.modules.theme
+import qs.modules.overlay
 import qs.modules.notifications
 
 // Missed-notification list, right-click-toggled open from NotificationBell.qml.

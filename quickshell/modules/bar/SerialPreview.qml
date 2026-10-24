@@ -1,7 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
-import Quickshell
 import qs.modules.theme
+import qs.modules.overlay
 
 // Device list popup, right-click-toggled open from SerialWatcher.qml.
 // Clicking a device opens a terminal running picocom against it - swap for
@@ -15,7 +15,7 @@ PillPopup {
     required property var devices
 
     function openConsole(devicePath) {
-        Quickshell.execDetached(["alacritty", "-e", "sh", "-c", 'picocom -b 115200 "$1"', "sh", devicePath]);
+        popup.launch(["alacritty", "-e", "sh", "-c", 'picocom -b 115200 "$1"', "sh", devicePath]);
     }
 
     Item {

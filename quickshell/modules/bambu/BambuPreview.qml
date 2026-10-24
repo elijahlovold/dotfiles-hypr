@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import qs.modules.theme
+import qs.modules.overlay
 
 // Detail popup, right-click-toggled open from Bambu.qml. Pure presentation
 // over the `status` object the socket already parsed - no process/service

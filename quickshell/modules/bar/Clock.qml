@@ -65,59 +65,18 @@ Item {
         anchors.topMargin: -Theme.barHeight
         acceptedButtons: Qt.RightButton
         cursorShape: Qt.PointingHandCursor
-        onEntered: {
-            closeTimer.stop();
-            hoverOpenTimer.restart();
-        }
-        onExited: {
-            hoverOpenTimer.stop();
-            closeTimer.restart();
-        }
+        onEntered: opener.hoverEntered()
+        onExited: opener.hoverExited()
         hoverEnabled: true
-        onClicked: root.previewOpen = !root.previewOpen
+        onClicked: opener.toggle()
     }
 
-    // Opens on hover after a short dwell, so sweeping the cursor across the
-    // bar doesn't flash every popup on the way past. Clicks still toggle.
-    Timer {
-        id: hoverOpenTimer
-        interval: 50
-        onTriggered: root.previewOpen = true
-    }
-
-    // Grace period so crossing the small gap between the pill and the
-    // popup below it (or moving between the two) doesn't cause a flicker
-    // close - only actually closes if neither is hovered once it fires.
-    Timer {
-        id: closeTimer
-        interval: 250
-        onTriggered: {
-            if (!(previewLoader.item?.hovered ?? false))
-                root.previewOpen = false;
-        }
-    }
-
-    // Keyboard/IPC open: qs ipc call barpopup open calendar
-    PopupTarget {
-        name: "calendar"
+    PopupOpener {
+        id: opener
         widget: root
-    }
-
-    Loader {
-        id: previewLoader
-        active: root.previewOpen
-        sourceComponent: CalendarPreview {
+        name: "calendar"
+        popup: CalendarPreview {
             anchorItem: root
-        }
-    }
-
-    Connections {
-        target: previewLoader.item
-        function onHoveredChanged() {
-            if (previewLoader.item.hovered)
-                closeTimer.stop();
-            else
-                closeTimer.restart();
         }
     }
 }

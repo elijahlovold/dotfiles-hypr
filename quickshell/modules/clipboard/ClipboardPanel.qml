@@ -2,14 +2,14 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Wayland
 import qs.modules.theme
+import qs.modules.overlay
 
 // Search-as-you-type replacement for `cliphist list | wofi --dmenu | cliphist
-// decode | wl-copy`, with visual thumbnails for image entries. Same overlay-
-// layer-surface trick as KeytreeWindow.qml/ImagePickerWindow.qml for
-// centering + OnDemand keyboard focus, and the same fake-TextInput search
-// technique as KeytreeWindow.qml (event.text appended to a plain string,
+// decode | wl-copy`, with visual thumbnails for image entries. A modal
+// OverlaySurface (modules/overlay) centered on the focused screen, like
+// KeytreePanel.qml, and the same fake-TextInput search technique as
+// KeytreePanel.qml (event.text appended to a plain string,
 // not a real TextInput - keeps the single Keys.onPressed on `contentItem`
 // as the one place that owns all keyboard behavior, independent of skin).
 //
@@ -18,30 +18,15 @@ import qs.modules.theme
 // `skinLoader` below switches purely the *rendering* by ThemeManager.
 // activeTheme; each skin is a self-contained inline Component reading this
 // file's `root` id directly. New skins don't touch any of the logic above.
-PanelWindow {
+OverlaySurface {
     id: root
 
-    signal dismissed
+    modal: true
+    inputItem: contentItem
+    z: 1
 
-    anchors {
-        top: true
-        bottom: true
-        left: true
-        right: true
-    }
-    exclusionMode: ExclusionMode.Ignore
-    exclusiveZone: 0
-    color: "transparent"
-    WlrLayershell.namespace: "quickshell:clipboard"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
-
-    mask: Region {
-        item: contentItem
-    }
-
-    readonly property int panelWidth: Math.min(560, Math.round(root.screen.width * 0.42))
-    readonly property int panelHeight: Math.min(480, Math.round(root.screen.height * 0.55))
+    readonly property int panelWidth: Math.min(560, Math.round((root.screen?.width ?? 0) * 0.42))
+    readonly property int panelHeight: Math.min(480, Math.round((root.screen?.height ?? 0) * 0.55))
 
     // ── Clipboard list ─────────────────────────────────────────────────────
     property var entries: []
@@ -86,7 +71,7 @@ PanelWindow {
     }
 
     // ── Image thumbnails ───────────────────────────────────────────────────
-    // Same disk-cached FILE/GENDONE protocol as ImagePickerWindow.qml's
+    // Same disk-cached FILE/GENDONE protocol as ImagePickerPanel.qml's
     // genScript, just decoding via cliphist instead of reading a file path -
     // cache key is cliphist's own row id, which is stable until that entry
     // ages out of history.
@@ -166,19 +151,7 @@ PanelWindow {
         onTriggered: root.refresh()
     }
 
-    // Cursor starts wherever it was when mod+V was pressed, which is
-    // usually off the panel (contentItem is only ever screen-centered, not
-    // full-screen). With focus-follows-mouse, moving the mouse from there
-    // crosses back onto whatever's under the clickthrough mask and steals
-    // keyboard focus, instantly triggering the activeFocus-loss dismiss
-    // below - same fix ImagePickerWindow.qml uses for the same reason.
-    Component.onCompleted: {
-        root.refresh();
-        Quickshell.execDetached(["hyprctl", "dispatch", "movecursor",
-            String(Math.round(root.screen.x + root.screen.width / 2)),
-            String(Math.round(root.screen.y + root.screen.height / 2))]);
-        contentItem.forceActiveFocus();
-    }
+    Component.onCompleted: root.refresh()
 
     Item {
         id: contentItem
@@ -187,15 +160,10 @@ PanelWindow {
         height: root.panelHeight
         focus: true
 
-        onActiveFocusChanged: {
-            if (!activeFocus)
-                root.dismissed();
-        }
-
         // Single place owning all keyboard behavior, regardless of active
         // skin - Up/Down navigate, Enter selects+copies+closes, Delete
         // removes the entry from cliphist, Escape closes, Backspace/typed
-        // characters edit the (fake, KeytreeWindow.qml-style) search field.
+        // characters edit the (fake, KeytreePanel.qml-style) search field.
         Keys.onPressed: event => {
             if (event.key === Qt.Key_Escape) {
                 root.dismissed();

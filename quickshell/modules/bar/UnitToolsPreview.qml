@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import qs.modules.theme
+import qs.modules.overlay
 
 // Two independent pure-QML/JS tools in one popup, opened from
 // UnitTools.qml: a live bidirectional unit converter (length/weight/temp -

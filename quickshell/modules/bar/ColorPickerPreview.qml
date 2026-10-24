@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import qs.modules.theme
+import qs.modules.overlay
 
 // Colorspace breakdown popup, opened from ColorPicker.qml right after a
 // hyprpicker sample. Each row copies its value to the clipboard via

@@ -3,55 +3,30 @@ import QtQuick
 import QtMultimedia
 import Quickshell
 import Quickshell.Io
-import Quickshell.Wayland
 import qs.modules.theme
+import qs.modules.overlay
 
-// Trim + export panel, as a full-screen transparent overlay surface with
-// the panel centered. Focus works like KeytreeWindow.qml: Exclusive
-// keyboard while open, so Hyprland's refocus on any layer unmap (keytree's
-// own close, which launches this) can't take the keyboard away, and
-// dismissal is explicit - Escape, or a click off the panel. The preview
-// loops between the in and out points so what plays is what gets exported.
+// Trim + export panel: a modal OverlaySurface (modules/overlay) centered on
+// the focused screen, like KeytreePanel.qml - it holds the keyboard while
+// open, and dismissal is explicit: Escape, or a click off the panel. The
+// preview loops between the in and out points so what plays is what gets
+// exported.
 //
 // Keys: j/k source, h/l seek 1s (H/L a frame), space play/pause, i/o set in/out,
 // f fps, w width, b browse for a file, Enter export, Esc close (or cancel a
 // running export).
-PanelWindow {
+OverlaySurface {
     id: root
 
     required property var exporter // Gif.qml
     property string initialFile: ""
 
-    signal dismissed
+    modal: true
+    inputItem: contentItem
+    z: 1
 
-    anchors {
-        top: true
-        bottom: true
-        left: true
-        right: true
-    }
-    exclusionMode: ExclusionMode.Ignore
-    exclusiveZone: 0
-    color: "transparent"
-    WlrLayershell.namespace: "quickshell:gif"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
-
-    // The whole surface takes input, so the pointer is never over a window
-    // the compositor could hand focus to; a press off the panel closes.
-    MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.AllButtons
-        onPressed: mouse => {
-            if (contentItem.contains(mapToItem(contentItem, mouse.x, mouse.y)))
-                mouse.accepted = false;
-            else
-                root.dismissed();
-        }
-    }
-
-    readonly property int panelWidth: Math.min(1100, Math.round(root.screen.width * 0.6))
-    readonly property int panelHeight: Math.min(680, Math.round(root.screen.height * 0.7))
+    readonly property int panelWidth: Math.min(1100, Math.round((root.screen?.width ?? 0) * 0.6))
+    readonly property int panelHeight: Math.min(680, Math.round((root.screen?.height ?? 0) * 0.7))
 
     // ── Sources ────────────────────────────────────────────────────────────
     // hypr-screenrec's recordings, newest first, with initialFile (a custom
@@ -170,11 +145,14 @@ PanelWindow {
     }
 
     // Pointer starts on the panel, ready for mouse use - cosmetic only.
-    Component.onCompleted: {
-        Quickshell.execDetached(["hyprctl", "dispatch", "movecursor",
-            String(Math.round(root.screen.x + root.screen.width / 2)),
-            String(Math.round(root.screen.y + root.screen.height / 2))]);
-        contentItem.forceActiveFocus();
+    // Once placed on its screen's overlay host (OverlaySurface).
+    onHostChanged: {
+        // host.screen, not `screen`: that binding may not have caught up yet.
+        const s = root.host?.screen;
+        if (s)
+            Quickshell.execDetached(["hyprctl", "dispatch", "movecursor",
+                String(Math.round(s.x + s.width / 2)),
+                String(Math.round(s.y + s.height / 2))]);
     }
 
     Item {

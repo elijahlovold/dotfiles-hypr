@@ -6,9 +6,9 @@ import Quickshell.Hyprland
 
 // Entry point for lightning strikes: Bolts.strike(from, to, style) draws a
 // bolt from `from` to `to` (global logical coords, `from` null = a random
-// point on the bottom edge) using BoltConfig.styles[style]. Bolt.qml does
-// the drawing on whichever screen `to` is on, so a source on another
-// monitor just enters from that screen's edge.
+// point on the bottom edge) using BoltConfig.styles[style]. The OverlayHost
+// (modules/overlay) of whichever screen `to` is on does the drawing, so a
+// source on another monitor just enters from that screen's edge.
 //
 // Also turns the Hyprland-side triggers into strikes: hypr/hyprland/bolt.lua
 // emits `custom>>bolt:focus ...` / `custom>>bolt:open ...` on socket2, which

@@ -42,61 +42,22 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onEntered: {
-            closeTimer.stop();
-            hoverOpenTimer.restart();
-        }
-        onExited: {
-            hoverOpenTimer.stop();
-            closeTimer.restart();
-        }
-        onClicked: root.previewOpen = !root.previewOpen
+        onEntered: opener.hoverEntered()
+        onExited: opener.hoverExited()
+        onClicked: opener.toggle()
     }
 
-    // Opens on hover after a short dwell, so sweeping the cursor across the
-    // bar doesn't flash every popup on the way past. Clicks still toggle.
-    Timer {
-        id: hoverOpenTimer
-        interval: 50
-        onTriggered: root.previewOpen = true
-    }
-
-    Timer {
-        id: closeTimer
-        interval: 250
-        onTriggered: {
-            if (!(previewLoader.item?.hovered ?? false))
-                root.previewOpen = false;
-        }
-    }
-
-    // Keyboard/IPC open: qs ipc call barpopup open drives
-    PopupTarget {
-        name: "drives"
+    PopupOpener {
+        id: opener
         widget: root
-    }
-
-    Loader {
-        id: previewLoader
-        // Also drops the popup once the last device is unplugged/ejected,
-        // since the pill it's anchored to collapses away.
-        active: root.previewOpen && root.visible
-        sourceComponent: DrivesPreview {
+        name: "drives"
+        available: root.visible
+        popup: DrivesPreview {
             anchorItem: root
             drives: DrivesState.drives
             phones: DrivesState.phones
             phoneMount: DrivesState.phoneMount
             onActionFinished: DrivesState.refresh()
-        }
-    }
-
-    Connections {
-        target: previewLoader.item
-        function onHoveredChanged() {
-            if (previewLoader.item.hovered)
-                closeTimer.stop();
-            else
-                closeTimer.restart();
         }
     }
 }

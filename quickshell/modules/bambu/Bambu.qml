@@ -76,56 +76,18 @@ Item {
         acceptedButtons: Qt.RightButton
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onEntered: {
-            closeTimer.stop();
-            hoverOpenTimer.restart();
-        }
-        onExited: {
-            hoverOpenTimer.stop();
-            closeTimer.restart();
-        }
-        onClicked: root.previewOpen = !root.previewOpen
+        onEntered: opener.hoverEntered()
+        onExited: opener.hoverExited()
+        onClicked: opener.toggle()
     }
 
-    // Opens on hover after a short dwell, so sweeping the cursor across the
-    // bar doesn't flash every popup on the way past. Clicks still toggle.
-    Timer {
-        id: hoverOpenTimer
-        interval: 50
-        onTriggered: root.previewOpen = true
-    }
-
-    Timer {
-        id: closeTimer
-        interval: 250
-        onTriggered: {
-            if (!(previewLoader.item?.hovered ?? false))
-                root.previewOpen = false;
-        }
-    }
-
-    // Keyboard/IPC open: qs ipc call barpopup open bambu
-    PopupTarget {
-        name: "bambu"
+    PopupOpener {
+        id: opener
         widget: root
-    }
-
-    Loader {
-        id: previewLoader
-        active: root.previewOpen
-        sourceComponent: BambuPreview {
+        name: "bambu"
+        popup: BambuPreview {
             anchorItem: root
             status: root.status
-        }
-    }
-
-    Connections {
-        target: previewLoader.item
-        function onHoveredChanged() {
-            if (previewLoader.item.hovered)
-                closeTimer.stop();
-            else
-                closeTimer.restart();
         }
     }
 }

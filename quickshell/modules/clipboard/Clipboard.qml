@@ -28,12 +28,12 @@ Scope {
         }
     }
 
-    // Fresh ClipboardWindow instance every open (not active: false hiding a
+    // Fresh ClipboardPanel instance every open (not active: false hiding a
     // persistent one) so cliphist list only ever runs while actually open -
     // same reasoning as every right-click popupComponent in modules/bar/.
     Loader {
         active: root.open
-        sourceComponent: ClipboardWindow {
+        sourceComponent: ClipboardPanel {
             onDismissed: root.open = false
         }
     }

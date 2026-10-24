@@ -30,7 +30,7 @@ Scope {
 
     Loader {
         active: root.open
-        sourceComponent: KeybindsWindow {
+        sourceComponent: KeybindsPanel {
             onDismissed: root.open = false
         }
     }

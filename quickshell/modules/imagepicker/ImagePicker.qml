@@ -29,7 +29,7 @@ Scope {
 
     Loader {
         active: root.open
-        sourceComponent: ImagePickerWindow {
+        sourceComponent: ImagePickerPanel {
             onDismissed: root.open = false
         }
     }

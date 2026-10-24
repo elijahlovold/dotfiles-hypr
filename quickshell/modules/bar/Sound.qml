@@ -32,17 +32,11 @@ Text {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onEntered: {
-            closeTimer.stop();
-            hoverOpenTimer.restart();
-        }
-        onExited: {
-            hoverOpenTimer.stop();
-            closeTimer.restart();
-        }
+        onEntered: opener.hoverEntered()
+        onExited: opener.hoverExited()
         onClicked: mouse => {
             if (mouse.button === Qt.RightButton)
-                root.previewOpen = !root.previewOpen;
+                opener.toggle();
             else
                 Quickshell.execDetached(["pavucontrol"]);
         }
@@ -55,46 +49,12 @@ Text {
         }
     }
 
-    // Opens on hover after a short dwell, so sweeping the cursor across the
-    // bar doesn't flash every popup on the way past. Clicks still toggle.
-    Timer {
-        id: hoverOpenTimer
-        interval: 50
-        onTriggered: root.previewOpen = true
-    }
-
-    // Grace period so crossing the small gap between the pill and the
-    // popup below it doesn't flicker it closed (same as Music.qml).
-    Timer {
-        id: closeTimer
-        interval: 250
-        onTriggered: {
-            if (!(previewLoader.item?.hovered ?? false))
-                root.previewOpen = false;
-        }
-    }
-
-    // Keyboard/IPC open: qs ipc call barpopup open sound
-    PopupTarget {
-        name: "sound"
+    PopupOpener {
+        id: opener
         widget: root
-    }
-
-    Loader {
-        id: previewLoader
-        active: root.previewOpen
-        sourceComponent: SoundPreview {
+        name: "sound"
+        popup: SoundPreview {
             anchorItem: root
-        }
-    }
-
-    Connections {
-        target: previewLoader.item
-        function onHoveredChanged() {
-            if (previewLoader.item.hovered)
-                closeTimer.stop();
-            else
-                closeTimer.restart();
         }
     }
 }

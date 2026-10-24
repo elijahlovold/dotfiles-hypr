@@ -73,17 +73,11 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onEntered: {
-            closeTimer.stop();
-            hoverOpenTimer.restart();
-        }
-        onExited: {
-            hoverOpenTimer.stop();
-            closeTimer.restart();
-        }
+        onEntered: opener.hoverEntered()
+        onExited: opener.hoverExited()
         onClicked: mouse => {
             if (mouse.button === Qt.RightButton) {
-                root.previewOpen = !root.previewOpen;
+                opener.toggle();
                 return;
             }
             root.previewOpen = false;
@@ -91,46 +85,14 @@ Item {
         }
     }
 
-    // Opens on hover after a short dwell, so sweeping the cursor across the
-    // bar doesn't flash every popup on the way past. Clicks still toggle.
-    Timer {
-        id: hoverOpenTimer
-        interval: 50
-        onTriggered: root.previewOpen = true
-    }
-
-    Timer {
-        id: closeTimer
-        interval: 250
-        onTriggered: {
-            if (!(previewLoader.item?.hovered ?? false))
-                root.previewOpen = false;
-        }
-    }
-
-    // Keyboard/IPC open: qs ipc call barpopup open screenrec
-    PopupTarget {
-        name: "screenrec"
+    PopupOpener {
+        id: opener
         widget: root
-    }
-
-    Loader {
-        id: previewLoader
-        active: root.previewOpen
-        sourceComponent: ScreenRecPreview {
+        name: "screenrec"
+        popup: ScreenRecPreview {
             anchorItem: root
             elapsed: root.elapsed
             onActionTaken: root.previewOpen = false
-        }
-    }
-
-    Connections {
-        target: previewLoader.item
-        function onHoveredChanged() {
-            if (previewLoader.item.hovered)
-                closeTimer.stop();
-            else
-                closeTimer.restart();
         }
     }
 }

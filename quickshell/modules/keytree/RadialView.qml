@@ -6,7 +6,7 @@ import qs.modules.theme
 // alpha, Qt #AARRGGBB style). Card/spacing/radius constants below are fixed
 // design values multiplied by KeytreeConfig.layout.nodeScale; the popup's
 // overall size comes from .ringScale (applied to the window size in
-// KeytreeWindow.qml, which r/r1/r2 are fractions of). fontScale only
+// KeytreePanel.qml, which r/r1/r2 are fractions of). fontScale only
 // touches font.pixelSize lines, driven by KeytreeConfig.layout.fontScale.
 Item {
     id: root
@@ -22,7 +22,7 @@ Item {
     property int    spiralThreshold:  6         // spiral mode: N+ items → spiral; else single ring
     property int    spiralGapPixels:  8
 
-    // Entrance/exit animation - set true by KeytreeWindow when it's about to
+    // Entrance/exit animation - set true by KeytreePanel when it's about to
     // tear down, so nodes can play their bloom/unfurl in reverse first.
     // Read totalAnimMs to know how long to actually wait before destroying.
     property bool   closing:          false
@@ -75,7 +75,7 @@ Item {
     Component.onCompleted: root._replayReveal()
     onItemsChanged: if (!root.closing)
         root._replayReveal()
-    // Reopened mid-close (KeytreeWindow.reopen) - play the reveal again.
+    // Reopened mid-close (KeytreePanel.reopen) - play the reveal again.
     onClosingChanged: {
         if (closing)
             revealProgress = 0;
@@ -373,7 +373,7 @@ Item {
     // ── Node cards ────────────────────────────────────────────────────────────
 
     // Window-local center of the node for `key`, or null - where a launch
-    // bolt leaves from (see KeytreeWindow.pressKey).
+    // bolt leaves from (see KeytreePanel.pressKey).
     function nodeCenter(key) {
         const i = root.items.findIndex(it => it.key === key);
         const node = i >= 0 ? nodeRepeater.itemAt(i) : null;

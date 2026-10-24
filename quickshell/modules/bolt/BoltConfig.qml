@@ -62,7 +62,7 @@ Singleton {
         maxSlope: 1.0
     })
 
-    // Bolts inside the keytree menu itself (drawn in its own window).
+    // Bolts inside the keytree menu itself (drawn by its own BoltItem).
     readonly property var keytree: ({
         enabled: true,
         swirl: true,       // on open: spiral out from the center onto a random node
@@ -129,9 +129,9 @@ Singleton {
     // slow-starting apps; popups consume it straight away.
     readonly property int originMaxAgeMs: 3000
 
-    // Keep the overlay surface alive this long after a strike so rapid
-    // follow-ups (holding focus keys) reuse it instead of recreating a
-    // fullscreen layer every time.
+    // Keep the overlay host mapped this long after its last strike or
+    // surface so rapid follow-ups (holding focus keys) reuse it instead of
+    // recreating a fullscreen layer every time.
     readonly property int lingerMs: 800
 
     // Look + timing per trigger.

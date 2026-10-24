@@ -101,17 +101,11 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.BackButton | Qt.ForwardButton
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onEntered: {
-            closeTimer.stop();
-            hoverOpenTimer.restart();
-        }
-        onExited: {
-            hoverOpenTimer.stop();
-            closeTimer.restart();
-        }
+        onEntered: opener.hoverEntered()
+        onExited: opener.hoverExited()
         onClicked: mouse => {
             if (mouse.button === Qt.RightButton) {
-                root.previewOpen = !root.previewOpen;
+                opener.toggle();
                 return;
             }
             if (!root.player)
@@ -125,48 +119,14 @@ Item {
         }
     }
 
-    // Opens on hover after a short dwell, so sweeping the cursor across the
-    // bar doesn't flash every popup on the way past. Clicks still toggle.
-    Timer {
-        id: hoverOpenTimer
-        interval: 50
-        onTriggered: root.previewOpen = true
-    }
-
-    // Grace period so crossing the small gap between the pill and the
-    // popup below it (or moving between the two) doesn't cause a flicker
-    // close - only actually closes if neither is hovered once it fires.
-    Timer {
-        id: closeTimer
-        interval: 250
-        onTriggered: {
-            if (!(previewLoader.item?.hovered ?? false))
-                root.previewOpen = false;
-        }
-    }
-
-    // Keyboard/IPC open: qs ipc call barpopup open music
-    PopupTarget {
-        name: "music"
+    PopupOpener {
+        id: opener
         widget: root
-    }
-
-    Loader {
-        id: previewLoader
-        active: root.previewOpen && root.player !== null
-        sourceComponent: MusicPreview {
+        name: "music"
+        available: root.player !== null
+        popup: MusicPreview {
             player: root.player
             anchorItem: root
-        }
-    }
-
-    Connections {
-        target: previewLoader.item
-        function onHoveredChanged() {
-            if (previewLoader.item.hovered)
-                closeTimer.stop();
-            else
-                closeTimer.restart();
         }
     }
 }

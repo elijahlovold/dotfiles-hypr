@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Networking
 import qs.modules.theme
+import qs.modules.overlay
 
 // Wi-Fi device/network picker opened from Network.qml, entirely on
 // Quickshell.Networking (NetworkManager over D-Bus) - the same live model

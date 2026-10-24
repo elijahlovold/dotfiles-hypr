@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.modules.theme
+import qs.modules.overlay
 
 // Log popup, right-click-toggled open from Stator.qml. Same pipeline as
 // MusicPreview.qml/CalendarPreview.qml: just tails `stator-rs --log`, no
@@ -33,11 +34,9 @@ PillPopup {
         onTriggered: proc.running = true
     }
 
-    // Only mapped once the log is actually loaded, so the surface is
-    // created already at its final size instead of appearing small (while
-    // "Loading..." is showing) and needing to grow once the real content
-    // arrives - popup/layer-shell surfaces don't reliably live-resize
-    // after being mapped.
+    // Only shown once the log is actually loaded, so the card drops open
+    // at its final size instead of appearing small (while "Loading..." is
+    // showing) and jumping taller once the real content arrives.
     visible: popup.logText.length > 0
 
     Item {

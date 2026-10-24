@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell.Io
 import qs.modules.theme
+import qs.modules.overlay
 
 // Resource monitor opened from SysMon.qml (the GPU | CPU | Mem pill):
 // CPU, GPU, memory/swap, network and per-disk graphs. Everything is read
@@ -14,9 +15,9 @@ import qs.modules.theme
 // this tick's content (they're tiny kernel-generated files) instead of the
 // previous tick's - see the note in AmdGpu.qml.
 //
-// Popup surfaces don't reliably resize after mapping (see SoundPreview),
-// so every section has a fixed height and the popup stays hidden until the
-// first lsblk result has fixed the disk list.
+// Every section has a fixed height and the popup stays hidden until the
+// first lsblk result has fixed the disk list, so the card drops open at its
+// final size instead of jumping taller (see SoundPreview).
 PillPopup {
     id: popup
 
@@ -208,7 +209,8 @@ PillPopup {
     }
 
     function sampleCpuFreq() {
-        const mhz = [...cpuinfoFile.text().matchAll(/^cpu MHz\s*:\s*([\d.]+)/gm)].map(m => Number(m[1]));
+        // No String.matchAll in Qt's JS engine.
+        const mhz = (cpuinfoFile.text().match(/^cpu MHz\s*:\s*[\d.]+/gm) ?? []).map(l => Number(l.split(":")[1]));
         if (mhz.length === 0)
             return;
         popup.cpuAvgMhz = mhz.reduce((a, b) => a + b, 0) / mhz.length;
