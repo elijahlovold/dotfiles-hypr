@@ -96,10 +96,13 @@ Row {
     }
 
     // Structural theme
-    Pill {
-        ThemeSwitcherWidget {}
-        Separator {}
-        DesktopWidgetToggle {}
+    Loader {
+        active: root.full
+        sourceComponent: Pill {
+            ThemeSwitcherWidget {}
+            Separator {}
+            DesktopWidgetToggle {}
+        }
     }
 
     // Utils
