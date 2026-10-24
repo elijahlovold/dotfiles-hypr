@@ -12,6 +12,7 @@ import qs.modules.notifications
 import qs.modules.clipboard
 import qs.modules.bolt
 import qs.modules.gif
+import qs.modules.screens
 
 ShellRoot {
     Connections {
@@ -41,4 +42,5 @@ ShellRoot {
     Clipboard {}
     Bolt {}
     Gif {}
+    Screens {}
 }

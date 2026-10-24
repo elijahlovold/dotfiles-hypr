@@ -58,6 +58,10 @@ hl.config({
         disable_splash_rendering = true,
         vrr = 2,
         allow_session_lock_restore = true,
+        -- Fallback wake for `dpms off` if quickshell's screens module
+        -- (which normally turns them back on) isn't running.
+        key_press_enables_dpms = true,
+        mouse_move_enables_dpms = true,
     },
 })
 

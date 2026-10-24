@@ -179,6 +179,8 @@ Singleton {
         "b": { icon: "  ", label: "Bambu", cmd: "qs ipc call barpopup open bambu" },
         "y": { icon: "󱇯  ", label: "Stator", cmd: "qs ipc call barpopup open stator" },
         "h": { icon: "  ", label: "System monitor", cmd: "qs ipc call barpopup open sysmon" },
+        // Blank all monitors until the next input (modules/screens).
+        "o": { icon: "󰶐  ", label: "Screens off", cmd: "qs ipc call screens off" },
         // Hyprland screen shaders (scripts/hypr-shader, hypr/shaders/).
         // Picking the active one again turns it off; ▶ = animated, which
         // redraws the whole monitor every frame while it's on.
