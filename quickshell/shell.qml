@@ -11,6 +11,7 @@ import qs.modules.draw
 import qs.modules.notifications
 import qs.modules.clipboard
 import qs.modules.bolt
+import qs.modules.gif
 
 ShellRoot {
     Connections {
@@ -39,4 +40,5 @@ ShellRoot {
     Notifications {}
     Clipboard {}
     Bolt {}
+    Gif {}
 }

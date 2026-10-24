@@ -169,6 +169,7 @@ Singleton {
         "w": { icon: "  ", label: "Wi-Fi", cmd: "qs ipc call barpopup open wifi" },
         "d": { icon: "  ", label: "Drives", cmd: "qs ipc call barpopup open drives" },
         "r": { icon: "  ", label: "Record", cmd: "qs ipc call barpopup open screenrec" },
+        "g": { icon: "󰵸  ", label: "GIF maker", cmd: "qs ipc call gif toggle" },
         "e": { icon: "  ", label: "Serial", cmd: "qs ipc call barpopup open serial" },
         "c": { icon: "  ", label: "Calendar", cmd: "qs ipc call barpopup open calendar" },
         "p": { icon: "  ", label: "Color picker", cmd: "qs ipc call barpopup open colorpicker" },
