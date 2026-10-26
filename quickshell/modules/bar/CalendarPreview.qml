@@ -50,6 +50,17 @@ PillPopup {
         popup.setCursor(new Date(c.getFullYear(), c.getMonth() + months, Math.min(c.getDate(), last)));
     }
 
+    // Weeks run Sunday-Saturday, matching the grid's rows.
+    function weekStart(count) {
+        const dow = popup.cursor.getDay();
+        popup.moveCursor(-(dow === 0 ? 7 * count : dow + 7 * (count - 1)));
+    }
+
+    function weekEnd(count) {
+        const dow = popup.cursor.getDay();
+        popup.moveCursor(dow === 6 ? 7 * count : 6 - dow + 7 * (count - 1));
+    }
+
     function setCursor(date) {
         popup.cursor = date;
         popup.monthOffset = (date.getFullYear() - popup.todayDate.getFullYear()) * 12 + date.getMonth() - popup.todayDate.getMonth();
@@ -69,6 +80,12 @@ PillPopup {
             break;
         case "down":
             popup.moveCursor(7 * count);
+            break;
+        case "key:b":
+            popup.weekStart(count);
+            break;
+        case "key:e":
+            popup.weekEnd(count);
             break;
         case "next":
             popup.moveMonth(count);
