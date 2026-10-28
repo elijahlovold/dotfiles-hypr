@@ -137,7 +137,7 @@ Singleton {
           label: "Social/",
           icon: "  ",
           children: {
-            "d": { icon: "  ", label: "Discord", cmd: "discord" },
+            "d": { icon: "  ", label: "Discord", cmd: "vesktop" },
             "g": { icon: "󰘊  ", label: "Signal",  cmd: "signal-desktop" },
             "n": { icon: "󰿌  ", label: "Session", cmd: "session-desktop" },
             "p": { icon: "  ", label: "Phone",   cmd: "firefox --new-window https://messages.google.com/web/conversations" },

@@ -50,7 +50,7 @@ Singleton {
     // ---- Transitions ----
     // One of effects, or "random". Switchable live, until the next start:
     //   qs -p <this dir> ipc call wallpaper effect <name>
-    readonly property string effect: "pixelate"
+    readonly property string effect: "shatter"
     // Each but fade is shaders/<name>.frag.qsb.
     readonly property var effects: ["shatter", "dissolve", "scroll", "ripple", "blinds", "pixelate", "fade"]
     // "in": the effect brings the new video in over the old one (shaders
