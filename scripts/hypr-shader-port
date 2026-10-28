@@ -3,8 +3,13 @@
 
     hypr-shader-port [SRC_DIR] [OUT_DIR] [NAME...]
 
-Defaults: SRC_DIR = ghostty-shaders/ and OUT_DIR = hypr/shaders/ next to
-this repo's scripts/ dir; no NAMEs = every *.glsl in SRC_DIR.
+Defaults: SRC_DIR = hypr/shaders/src/ (this repo's own shaders) and
+OUT_DIR = hypr/shaders/; no NAMEs = every *.glsl in SRC_DIR. For Ghostty's
+shaders pass their dir, e.g. ~/.config/ghostty/ghostty-shaders.
+
+Hyprland takes one screen shader at a time, so effects are combined at
+build time instead: `#include "lib/x.glsl"` (relative to the including
+file, each file pasted once) pulls in shared effect functions.
 
 Ghostty shaders define mainImage(out vec4, in vec2 fragCoord) and read
 iChannel0/iResolution/iTime. Hyprland's screen shader (decoration:
@@ -112,18 +117,37 @@ def port(s):
     return s
 
 
+INCLUDE = re.compile(r'^[ \t]*#include\s+"([^"]+)"[ \t]*$', re.M)
+
+
+def expand(path, seen):
+    with open(path) as f:
+        src = f.read()
+
+    def include(m):
+        inc = os.path.normpath(os.path.join(os.path.dirname(path), m[1]))
+        if inc in seen:
+            return f"// {m[1]}: already included"
+        seen.add(inc)
+        return f"// ---- {m[1]} ----\n" + expand(inc, seen) + f"// ---- end {m[1]} ----"
+    return INCLUDE.sub(include, src)
+
+
 def main(argv):
-    src_dir = argv[0] if len(argv) > 0 else os.path.join(REPO, "ghostty-shaders")
+    src_dir = argv[0] if len(argv) > 0 else os.path.join(REPO, "hypr", "shaders", "src")
     if not os.path.isdir(src_dir):
         sys.exit(f"hypr-shader-port: no shader source dir {src_dir} - pass one, e.g. a ghostty-shaders checkout")
     out_dir = argv[1] if len(argv) > 1 else os.path.join(REPO, "hypr", "shaders")
     names = argv[2:] or sorted(f[:-5] for f in os.listdir(src_dir) if f.endswith(".glsl"))
     os.makedirs(out_dir, exist_ok=True)
     for name in names:
-        with open(os.path.join(src_dir, name + ".glsl")) as f:
-            src = f.read()
+        path = os.path.join(src_dir, name + ".glsl")
+        src = expand(path, set())
+        label = os.path.relpath(os.path.realpath(path), REPO)
+        if label.startswith(".."):
+            label = f"ghostty-shaders/{name}.glsl"
         animated = "yes" if re.search(r'\biTime\b', src) else "no"
-        out = f"// animated: {animated}\n" + HEADER.replace("{src}", f"ghostty-shaders/{name}.glsl") + port(src) + FOOTER
+        out = f"// animated: {animated}\n" + HEADER.replace("{src}", label) + port(src) + FOOTER
         # #version must be the first line for GLSL - move the marker after it.
         out = out.replace(f"// animated: {animated}\n#version 300 es\n", f"#version 300 es\n// animated: {animated}\n", 1)
         with open(os.path.join(out_dir, name + ".frag"), "w") as f:

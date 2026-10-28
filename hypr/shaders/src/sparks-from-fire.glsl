@@ -1,0 +1,268 @@
+// Desktop version of ghostty-shaders/sparks-from-fire.glsl for hypr-shader: the effect
+// is screen-blended over everything instead of replacing dark pixels, and
+// an uninitialised variable is fixed (Mesa drew nothing at all). For
+// speed, pixels a spark can't reach skip its noise work, and the 8
+// particle layers (nearly the same depth: each only SIZE_MOD = 5% bigger)
+// are drawn SPARK_MERGE at a time on a finer grid (see layeredParticles),
+// and the smoke uses 4 noise octaves instead of 6.
+#include "lib/blend.glsl"
+
+// adapted by Alex Sherwin for Ghstty from https://www.shadertoy.com/view/wl2Gzc
+
+//Shader License: CC BY 3.0
+//Author: Jan Mróz (jaszunio15)
+
+#define SMOKE_INTENSITY_MULTIPLIER 0.9
+#define PARTICLES_ALPHA_MOD 0.9
+#define SMOKE_ALPHA_MOD 0.5
+#define LAYERS_COUNT 8
+
+#define BLACK_BLEND_THRESHOLD .4
+
+#define VEC3_1 (vec3(1.0))
+
+#define PI 3.1415927
+#define TWO_PI 6.283185
+
+#define ANIMATION_SPEED 1.0
+#define MOVEMENT_SPEED .33
+#define MOVEMENT_DIRECTION vec2(0.7, 1.0)
+
+#define PARTICLE_SIZE 0.0025
+
+#define PARTICLE_SCALE (vec2(0.5, 1.6))
+#define PARTICLE_SCALE_VAR (vec2(0.25, 0.2))
+
+#define PARTICLE_BLOOM_SCALE (vec2(0.5, 0.8))
+#define PARTICLE_BLOOM_SCALE_VAR (vec2(0.3, 0.1))
+
+#define SPARK_COLOR vec3(1.0, 0.4, 0.05) * 1.5
+#define BLOOM_COLOR vec3(1.0, 0.4, 0.05) * 0.8
+#define SMOKE_COLOR vec3(1.0, 0.43, 0.1) * 0.8
+
+#define SIZE_MOD 1.05
+#define SPARK_MERGE 4   // layers drawn per pass; LAYERS_COUNT must divide by it
+
+
+float hash1_2(in vec2 x)
+{
+ 	return fract(sin(dot(x, vec2(52.127, 61.2871))) * 521.582);   
+}
+
+vec2 hash2_2(in vec2 x)
+{
+    return fract(sin(x * mat2x2(20.52, 24.1994, 70.291, 80.171)) * 492.194);
+}
+
+//Simple interpolated noise
+vec2 noise2_2(vec2 uv)
+{
+    //vec2 f = fract(uv);
+    vec2 f = smoothstep(0.0, 1.0, fract(uv));
+    
+ 	vec2 uv00 = floor(uv);
+    vec2 uv01 = uv00 + vec2(0,1);
+    vec2 uv10 = uv00 + vec2(1,0);
+    vec2 uv11 = uv00 + 1.0;
+    vec2 v00 = hash2_2(uv00);
+    vec2 v01 = hash2_2(uv01);
+    vec2 v10 = hash2_2(uv10);
+    vec2 v11 = hash2_2(uv11);
+    
+    vec2 v0 = mix(v00, v01, f.y);
+    vec2 v1 = mix(v10, v11, f.y);
+    vec2 v = mix(v0, v1, f.x);
+    
+    return v;
+}
+
+//Simple interpolated noise
+float noise1_2(in vec2 uv)
+{
+    // vec2 f = fract(uv);
+    vec2 f = smoothstep(0.0, 1.0, fract(uv));
+    
+ 	vec2 uv00 = floor(uv);
+    vec2 uv01 = uv00 + vec2(0,1);
+    vec2 uv10 = uv00 + vec2(1,0);
+    vec2 uv11 = uv00 + 1.0;
+    
+    float v00 = hash1_2(uv00);
+    float v01 = hash1_2(uv01);
+    float v10 = hash1_2(uv10);
+    float v11 = hash1_2(uv11);
+    
+    float v0 = mix(v00, v01, f.y);
+    float v1 = mix(v10, v11, f.y);
+    float v = mix(v0, v1, f.x);
+    
+    return v;
+}
+
+
+float layeredNoise1_2(in vec2 uv, in float sizeMod, in float alphaMod, in int layers, in float animation)
+{
+ 	  float noise = 0.0;
+    float alpha = 1.0;
+    float size = 1.0;
+    vec2 offset = vec2(0.0); // was uninitialised: NaN smoke on Mesa
+    for (int i = 0; i < layers; i++)
+    {
+        offset += hash2_2(vec2(alpha, size)) * 10.0;
+        
+        //Adding noise with movement
+     	  noise += noise1_2(uv * size + iTime * animation * 8.0 * MOVEMENT_DIRECTION * MOVEMENT_SPEED + offset) * alpha;
+        alpha *= alphaMod;
+        size *= sizeMod;
+    }
+    
+    noise *= (1.0 - alphaMod)/(1.0 - pow(alphaMod, float(layers)));
+    return noise;
+}
+
+//Rotates point around 0,0
+vec2 rotate(in vec2 point, in float deg)
+{
+ 	float s = sin(deg);
+    float c = cos(deg);
+    return mat2x2(s, c, -c, s) * point;
+}
+
+//Cell center from point on the grid
+vec2 voronoiPointFromRoot(in vec2 root, in float deg)
+{
+  	vec2 point = hash2_2(root) - 0.5;
+    float s = sin(deg);
+    float c = cos(deg);
+    point = mat2x2(s, c, -c, s) * point * 0.66;
+    point += root + 0.5;
+    return point;
+}
+
+//Voronoi cell point rotation degrees
+float degFromRootUV(in vec2 uv)
+{
+ 	return iTime * ANIMATION_SPEED * (hash1_2(uv) - 0.5) * 2.0;   
+}
+
+vec2 randomAround2_2(in vec2 point, in vec2 range, in vec2 uv)
+{
+ 	return point + (hash2_2(uv) - 0.5) * range;
+}
+
+
+// One pass's sparks at `coarse` (in a single layer's cell units), on a
+// grid k times finer, so k^2 = SPARK_MERGE times the sparks. Spark size,
+// wobble and bloom stay in single-layer units, so sparks look the same;
+// each one stands for one of the pass's layers (picked per spark) and
+// takes that layer's alpha and smoke fade.
+vec3 fireParticles(in vec2 coarse, in vec2 originalUV, in float k, in int pass, in float smoke)
+{
+    vec3 particles = vec3(0.0);
+    vec2 uv = coarse * k;
+    vec2 rootUV = floor(uv);
+    float deg = degFromRootUV(rootUV);
+    vec2 pointUV = voronoiPointFromRoot(rootUV, deg);
+    // The wobble below moves a spark by at most ~0.12 cells (two noise
+    // offsets of up to +-0.05 and +-0.035 per axis) and its bloom reaches at
+    // most PARTICLE_SIZE * 6 / 0.35 (smallest bloom scale) ~ 0.043 cells, so
+    // anything further than that gets exactly nothing from this spark.
+    if (length(uv - pointUV) > 0.17 * k)
+        return vec3(0.0);
+    float dist = 2.0;
+    float distBloom = 0.0;
+   
+   	//UV manipulation for the faster particle movement
+    vec2 tempUV = coarse + (noise2_2(coarse * 2.0) - 0.5) * 0.1;
+    tempUV += -(noise2_2(coarse * 3.0 + iTime) - 0.5) * 0.07;
+    vec2 rel = tempUV - pointUV / k;
+
+    //Sparks sdf
+    dist = length(rotate(rel, 0.7) * randomAround2_2(PARTICLE_SCALE, PARTICLE_SCALE_VAR, rootUV));
+    
+    //Bloom sdf
+    distBloom = length(rotate(rel, 0.7) * randomAround2_2(PARTICLE_BLOOM_SCALE, PARTICLE_BLOOM_SCALE_VAR, rootUV));
+
+    //Add sparks
+    particles += (1.0 - smoothstep(PARTICLE_SIZE * 0.6, PARTICLE_SIZE * 3.0, dist)) * SPARK_COLOR;
+    
+    //Add bloom
+    particles += pow((1.0 - smoothstep(0.0, PARTICLE_SIZE * 6.0, distBloom)) * 1.0, 3.0) * BLOOM_COLOR;
+
+    //Upper disappear curve randomization
+    float border = (hash1_2(rootUV) - 0.5) * 2.0;
+ 	float disappear = 1.0 - smoothstep(border, border + 0.5, originalUV.y);
+	
+    //Lower appear curve randomization
+    border = (hash1_2(rootUV + 0.214) - 1.8) * 0.7;
+    float appear = smoothstep(border, border + 0.4, originalUV.y);
+
+    // The layer this spark stands for: its alpha, and (as in the original)
+    // more smoke hides more of the further layers' sparks.
+    float layer = float(pass * SPARK_MERGE) + floor(hash1_2(rootUV + 0.77) * float(SPARK_MERGE));
+    float weight = pow(PARTICLES_ALPHA_MOD, layer) * (1.0 - smoothstep(0.0, 1.0, smoke) * layer / float(LAYERS_COUNT));
+    
+    return particles * disappear * appear * weight;
+}
+
+
+//Layering particles to imitate 3D view. Every pixel pays a fixed cost per
+//layer to find that layer's spark, so layers are drawn SPARK_MERGE at a
+//time: one pass at the group's middle depth on a grid sqrt(SPARK_MERGE)
+//times finer, i.e. the same number of sparks. (Sparks wander in a circle
+//inside their cell, so on the finer grid that circle is smaller.)
+vec3 layeredParticles(in vec2 uv, in float smoke) 
+{ 
+    vec3 particles = vec3(0);
+    float k = sqrt(float(SPARK_MERGE));
+    
+    for (int pass = 0; pass < LAYERS_COUNT / SPARK_MERGE; pass++)
+    {
+        float layer = float(pass * SPARK_MERGE) + 0.5 * float(SPARK_MERGE - 1);
+        float size = pow(SIZE_MOD, layer);
+        //Moving uv origin to avoid generating the same particles
+        vec2 offset = hash2_2(vec2(float(pass) + 0.31)) * 10.0 * float(pass);
+
+        //Particle noise movement
+        vec2 noiseOffset = (noise2_2(uv * size * 2.0 + 0.5) - 0.5) * 0.15;
+        
+        //UV with applied movement
+        vec2 bokehUV = (uv * size + iTime * MOVEMENT_DIRECTION * MOVEMENT_SPEED) + offset + noiseOffset; 
+        
+        particles += fireParticles(bokehUV, uv, k, pass, smoke);
+    }
+    
+    return particles;
+}
+
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec2 uv = (2.0 * fragCoord - iResolution.xy) / iResolution.x;
+    
+    // float vignette = 1.1 - smoothstep(0.4, 1.4, length(uv + vec2(0.0, 0.3)));
+    float vignette = 1.3 - smoothstep(0.4, 1.4, length(uv + vec2(0.0, 0.3)));
+    
+    uv *= 2.5;
+    
+    // 4 octaves (originally 6): the last two, weighted 0.7^4 and 0.7^5 at
+    // the finest scales, changed no pixel by more than ~1/255 on average.
+    float smokeIntensity = layeredNoise1_2(uv * 10.0 + iTime * 4.0 * MOVEMENT_DIRECTION * MOVEMENT_SPEED, 1.7, 0.7, 4, 0.2);
+    smokeIntensity *= pow(smoothstep(-1.0, 1.6, uv.y), 2.0); 
+    vec3 smoke = smokeIntensity * SMOKE_COLOR * vignette * SMOKE_INTENSITY_MULTIPLIER * SMOKE_ALPHA_MOD;
+    
+    //Cutting holes in smoke
+    smoke *= pow(layeredNoise1_2(uv * 4.0 + iTime * 0.5 * MOVEMENT_DIRECTION * MOVEMENT_SPEED, 1.8, 0.5, 3, 0.2), 2.0) * 1.5;
+    
+    vec3 particles = layeredParticles(uv, smokeIntensity);
+    
+    vec3 col = particles + smoke + SMOKE_COLOR * 0.02;
+	  col *= vignette;
+    
+    col = smoothstep(-0.08, 1.0, col);
+
+    vec2 termUV = fragCoord.xy / iResolution.xy;
+    vec4 terminalColor = texture(iChannel0, termUV);
+
+    vec3 blendedColor = screenBlend(terminalColor.rgb, col);
+    
+    fragColor = vec4(blendedColor, terminalColor.a);
+}

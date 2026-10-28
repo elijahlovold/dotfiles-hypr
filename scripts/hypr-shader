@@ -1,7 +1,7 @@
 #!/bin/sh
 # Hyprland screen shader switcher (decoration:screen_shader), for the
-# Super+P keytree's Shaders/ menu. Shaders live in hypr/shaders/ (generated
-# from ghostty-shaders/ by hypr-shader-port).
+# Super+P keytree's Shaders/ menu. Shaders live in hypr/shaders/, generated
+# by hypr-shader-port from hypr/shaders/src/ (or from ghostty-shaders/).
 #
 #   hypr-shader NAME      turn NAME on, or off if it's already on
 #   hypr-shader off
@@ -53,14 +53,26 @@ current() {
     [ -f "$state" ] && cat "$state" || echo off
 }
 
-# $1 = shader path ("" = none), $2 = damage tracking mode, $3 = vfr
+# $1 = shader path ("" = none), $2 = damage tracking mode, $3 = vfr,
+# $4 = extra hl.config entries (optional)
 apply() {
-    hyprctl eval "hl.config({ decoration = { screen_shader = \"$1\" }, debug = { damage_tracking = $2, vfr = $3 } })" >/dev/null ||
+    hyprctl eval "hl.config({ decoration = { screen_shader = \"$1\" }, debug = { damage_tracking = $2, vfr = $3 }${4:+, $4} })" >/dev/null ||
         die "hyprctl eval failed"
 }
 
+# Turning the shader off makes Hyprland (0.56) redraw each monitor in full
+# only twice (m_forceFullFrames = 2), and those forced frames aren't added
+# to the damage history used to repair recycled buffers. With 3 buffers in
+# the swapchain, the third still holds a shader frame; back on partial
+# redraws, each later frame only repaints what changed since that buffer's
+# last use, so the stale shader frame keeps flashing through until
+# something damages the whole monitor (e.g. focusing it). Re-setting
+# general:border_size (to its current value) makes Hyprland damageMonitor()
+# every monitor, which does go into that history, so every buffer gets
+# fully repainted.
 off() {
-    apply "" 2 true
+    border=$(hyprctl getoption general:border_size -j | jq -er .int) || die "couldn't read general:border_size"
+    apply "" 2 true "general = { border_size = $border }"
     rm -f "$state"
     notify "Off"
 }
