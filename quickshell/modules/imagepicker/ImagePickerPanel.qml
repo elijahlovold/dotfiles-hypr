@@ -57,6 +57,12 @@ OverlaySurface {
     property var images: []
     property int currentIndex: 0
 
+    // The wallpaper to open on (ImagePicker keeps it across opens); moved
+    // reports each new position back. Not while a listing resets the grid.
+    property string startPath
+    signal moved(string path)
+    property bool rebuilding: false
+
     // ── Lightning between selections (modules/bolt, BoltConfig.picker) ───────
     // Same edge-to-edge jump as window focus moves (Bolts.facingPoints), in
     // the grid's content coordinates - so it scrolls along with the view.
@@ -72,6 +78,8 @@ OverlaySurface {
     }
 
     onCurrentIndexChanged: {
+        if (!root.rebuilding && root.images[root.currentIndex])
+            root.moved(root.images[root.currentIndex].path);
         const from = root.lastIndex;
         root.lastIndex = root.currentIndex;
         if (from < 0 || from >= root.images.length || from === root.currentIndex || !Bolts.active("picker"))
@@ -93,12 +101,17 @@ OverlaySurface {
                 ready: false
             });
         }
+        const start = Math.max(0, list.findIndex(img => img.path === root.startPath));
+        root.rebuilding = true;
         root.images = list;
-        // -1 while resetting so the reset itself doesn't strike; then 0, as
-        // the change handler doesn't run when currentIndex was already 0.
+        // -1 while resetting so the reset itself doesn't strike, then set
+        // directly, as the change handler doesn't run when currentIndex
+        // already had that value.
         root.lastIndex = -1;
-        root.currentIndex = 0;
-        root.lastIndex = 0;
+        root.currentIndex = start;
+        root.lastIndex = start;
+        root.rebuilding = false;
+        Qt.callLater(() => grid.positionViewAtIndex(root.currentIndex, GridView.Center));
         root.startThumbnailGeneration();
     }
 
@@ -188,11 +201,14 @@ OverlaySurface {
     function flushReady() {
         const done = root.pendingReady;
         root.pendingReady = {};
+        // A new model array resets the view to the top; keep it where it was.
+        const y = grid.contentY;
         root.images = root.images.map(img => done[img.path] ? {
             path: img.path,
             thumbPath: img.thumbPath,
             ready: true
         } : img);
+        grid.contentY = y;
     }
 
     Process {

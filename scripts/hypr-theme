@@ -1,0 +1,46 @@
+#!/bin/sh
+# Re-theme the desktop: build a palette, render every wallust template from
+# it, then run wallust's [hooks]. quickshell-wall calls this on every
+# wallpaper switch (WallConfig.themeCommand / clearThemeCommand).
+#
+#   hypr-theme STILL.png   palette from the image (wallpal, ~/repos/wallpal)
+#   hypr-theme --default   wallust's "default" colorscheme
+#
+# --side left: the portrait monitor sits left of the wallpaper's, so
+# wallpal reports the colour along the wallpaper's left edge ("edge", which
+# the portrait's field takes its hue from) and gives the palette background
+# that hue too. Change SIDE if the monitors move.
+#
+# wallust 3.5 only runs [hooks] on `wallust run`, never on `wallust cs`
+# (despite cs taking --no-hooks), so they're run here - read from the
+# [hooks] table of wallust.toml, which stays the one place they're defined.
+# One failing hook doesn't stop the others.
+set -eu
+
+conf="${XDG_CONFIG_HOME:-$HOME/.config}/wallust/wallust.toml"
+palette="${XDG_CACHE_HOME:-$HOME/.cache}/wallpal/current.json"
+SIDE=left
+
+case "${1:-}" in
+    --default)
+        # no wallpaper, no edge colour: the portrait drops back to the palette
+        rm -f "$palette"
+        wallust cs -q default
+        ;;
+    "" | -*)
+        echo "usage: hypr-theme STILL.png | --default" >&2
+        exit 2
+        ;;
+    *)
+        wallpal "$1" -o "$palette" --side "$SIDE"
+        wallust cs -q "$palette"
+        ;;
+esac
+
+# `name = "command"` lines between [hooks] and the next table; commented-out
+# lines don't match, trailing comments are dropped.
+sed -n '/^\[hooks\]/,/^\[/{/^[[:space:]]*[A-Za-z0-9_-]*[[:space:]]*=/p}' "$conf" |
+    sed -E "s/^[^=]*=[[:space:]]*//; s/^\"(.*)\"[[:space:]]*(#.*)?$/\1/; s/^'(.*)'[[:space:]]*(#.*)?$/\1/" |
+    while IFS= read -r hook; do
+        sh -c "$hook" || echo "hypr-theme: hook failed: $hook" >&2
+    done

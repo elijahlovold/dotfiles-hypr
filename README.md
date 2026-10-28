@@ -6,7 +6,7 @@ hyprland + quickshell desktop configuration and supporting scripts.
 
 - `hypr/` — hyprland configuration
 - `quickshell/` — quickshell configuration
-- `scripts/` — hyprland-specific utilities
+- `scripts/` — hyprland-specific utilities (`hypr-theme` re-themes from a wallpaper; needs `wallpal` (~/repos/wallpal) on PATH)
 - `setup` — installs the configuration via symlinks
 
 ## Setup

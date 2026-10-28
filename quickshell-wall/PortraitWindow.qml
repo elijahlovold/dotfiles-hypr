@@ -6,9 +6,10 @@ import Quickshell.Wayland
 
 // The portrait monitor's wallpaper: portrait-base.png (made once by
 // make-portrait-base.py) recoloured on the GPU by shaders/portrait.frag
-// from three palette roles. A palette change - whoever ran wallust: a video
-// switch, `wallpaper clear`, the main shell's theme switcher - just
-// animates those three colours; no process, no file.
+// from five palette roles, plus the colour along the main wallpaper's edge
+// beside this screen (wallpal's "edge") for the field. A palette change -
+// whoever ran wallust: a video switch, `wallpaper clear`, the main shell's
+// theme switcher - just animates those colours; no process.
 PanelWindow {
     id: root
 
@@ -16,6 +17,12 @@ PanelWindow {
     property color accent
     property color second
     property color light
+    // The logo's gradient ends: the two palette colours furthest apart.
+    property color logoA
+    property color logoB
+    // wallpal's edge colour; transparent (alpha 0) when there's none, e.g.
+    // after `wallpaper clear`, and the field keeps its palette-derived hue.
+    property color field: "transparent"
     // false until the palette has loaded: the base shows uncoloured.
     property bool themed: false
 
@@ -53,6 +60,27 @@ PanelWindow {
             easing.type: Easing.InOutQuad
         }
     }
+    Behavior on logoA {
+        enabled: root.themed
+        ColorAnimation {
+            duration: WallConfig.durationMs
+            easing.type: Easing.InOutQuad
+        }
+    }
+    Behavior on logoB {
+        enabled: root.themed
+        ColorAnimation {
+            duration: WallConfig.durationMs
+            easing.type: Easing.InOutQuad
+        }
+    }
+    Behavior on field {
+        enabled: root.themed
+        ColorAnimation {
+            duration: WallConfig.durationMs
+            easing.type: Easing.InOutQuad
+        }
+    }
 
     // Oklab [L, a, b] of an sRGB colour.
     function oklab(c) {
@@ -66,7 +94,9 @@ PanelWindow {
 
     // accent: color13, the shell's accent. second: the most chromatic
     // colour whose hue is >25deg from it (else just the most chromatic).
-    // light: the lightest of the five most chromatic.
+    // light: the lightest of the five most chromatic. logoA/logoB: the pair
+    // furthest apart in Oklab with lightness weighted down (the logo keeps
+    // its own shading, so only hue/chroma can show), darker one first.
     function pickRoles() {
         const names = [1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14].map(i => "color" + i);
         const info = {};
@@ -82,9 +112,25 @@ PanelWindow {
         const others = names.filter(n => n !== "color13").sort((x, y) => info[y].chroma - info[x].chroma);
         const second = others.find(n => hueGap(n, "color13") > 25 * Math.PI / 180) ?? others[0];
         const light = others.slice(0, 5).reduce((best, n) => info[n].L > info[best].L ? n : best);
+        const lab = {};
+        for (const n of names)
+            lab[n] = root.oklab(pal[n]);
+        let far = [names[0], names[1]], farDist = -1;
+        for (let i = 0; i < names.length; i++) {
+            for (let j = i + 1; j < names.length; j++) {
+                const [p, q] = [lab[names[i]], lab[names[j]]];
+                const dist = Math.hypot(0.3 * (p[0] - q[0]), p[1] - q[1], p[2] - q[2]);
+                if (dist > farDist) {
+                    farDist = dist;
+                    far = info[names[i]].L <= info[names[j]].L ? [names[i], names[j]] : [names[j], names[i]];
+                }
+            }
+        }
         root.accent = pal.color13;
         root.second = pal[second];
         root.light = pal[light];
+        root.logoA = pal[far[0]];
+        root.logoB = pal[far[1]];
         root.themed = true;
     }
 
@@ -113,6 +159,21 @@ PanelWindow {
         }
     }
 
+    FileView {
+        path: WallConfig.wallpalFile
+        printErrors: false
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: root.field = wallpal.edge || "transparent"
+        onLoadFailed: root.field = "transparent"
+
+        JsonAdapter {
+            id: wallpal
+
+            property string edge
+        }
+    }
+
     Image {
         id: base
         anchors.fill: parent
@@ -130,6 +191,9 @@ PanelWindow {
         property color accent: root.accent
         property color second: root.second
         property color light: root.light
+        property color logoA: root.logoA
+        property color logoB: root.logoB
+        property color field: root.field
 
         fragmentShader: Qt.resolvedUrl("shaders/portrait.frag.qsb")
     }

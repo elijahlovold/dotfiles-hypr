@@ -12,7 +12,8 @@ Singleton {
     id: root
 
     // ---- Wallust palette ----
-    // `wallust run` writes ~/.cache/quickshell/palette.json from the sibling
+    // wallust (run by scripts/hypr-theme) writes
+    // ~/.cache/quickshell/palette.json from the sibling
     // palette.json.template (copy it into wallust's templates dir). The hex
     // values in the adapter below are the tracked fallback, used until that
     // file exists or if it can't be parsed. FileView watches the file

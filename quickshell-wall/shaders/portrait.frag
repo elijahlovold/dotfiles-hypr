@@ -7,7 +7,12 @@
 // chroma scales with the pixel's own relative to its anchor so faint
 // things stay faint. Roles come in as accent (color13), second (most
 // chromatic colour of clearly different hue) and light (lightest of the
-// chromatic ones) - PortraitWindow picks them.
+// chromatic ones) for the field and waves, and logoA/logoB - the two
+// palette colours furthest apart in colour - for the logo, whose coral ->
+// yellow gradient spans them. PortraitWindow picks them. field, when its
+// alpha is 1, is the colour along the main wallpaper's edge beside this
+// screen: the field takes its hue (at the chroma it would have had anyway)
+// so the two screens meet in one colour.
 //
 // The source carries its picture in hue more than lightness (the logo's
 // yellow -> coral gradient, pink/violet waves at the field's lightness),
@@ -22,6 +27,9 @@ layout(std140, binding = 0) uniform buf {
     vec4 accent;
     vec4 second;
     vec4 light;
+    vec4 logoA;
+    vec4 logoB;
+    vec4 field;
 };
 layout(binding = 1) uniform sampler2D source;
 
@@ -32,6 +40,8 @@ const float SIGMA = 0.06;
 const float L_WEIGHT = 0.6;
 // Ceiling on chroma relative to the anchor.
 const float MAX_RATIO = 1.5;
+// The field's lightness relative to the source's.
+const float FIELD_L = 0.9;
 
 vec3 toLinear(vec3 c) {
     return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
@@ -67,6 +77,18 @@ vec3 fromOklab(vec3 lab) {
         -0.0041960863 * lms.x - 0.7034133289 * lms.y + 1.7076127010 * lms.z));
 }
 
+// Halfway between two colours in Oklch, the short way round the hue
+// circle; a near-grey end takes the other's hue so it doesn't sweep.
+vec3 mixLch(vec3 x, vec3 y) {
+    float cx = length(x.yz), cy = length(y.yz);
+    float hx = atan(x.z, x.y), hy = atan(y.z, y.y);
+    if (cx < 0.02) hx = hy;
+    if (cy < 0.02) hy = hx;
+    float dh = mod(hy - hx + 3.14159265, 6.2831853) - 3.14159265;
+    float h = hx + dh * 0.5, c = (cx + cy) * 0.5;
+    return vec3((x.x + y.x) * 0.5, c * cos(h), c * sin(h));
+}
+
 void main() {
     vec3 src = oklab(texture(source, qt_TexCoord0).rgb);
 
@@ -81,14 +103,24 @@ void main() {
     vec3 a = oklab(accent.rgb);
     vec3 s = oklab(second.rgb);
     vec3 l = oklab(light.rgb);
+    vec3 la = oklab(logoA.rgb);
+    vec3 lb = oklab(logoB.rgb);
+    // The field, toned down; with an edge colour, its hue at the same
+    // chroma, fading to grey when the edge itself is grey.
+    vec2 fieldAB = 0.6 * (a.yz + s.yz) / 2.0;
+    if (field.a > 0.5) {
+        vec2 f = oklab(field.rgb).yz;
+        float fc = length(f);
+        fieldAB = length(fieldAB) * smoothstep(0.005, 0.02, fc) * f / max(fc, 1e-6);
+    }
     // What each anchor becomes; only its a/b (hue, chroma) is used.
     vec2 targets[N] = vec2[N](
-        0.6 * (a.yz + s.yz) / 2.0,  // the field, toned down
+        fieldAB,
         s.yz,
         a.yz,
-        a.yz,
-        (a.yz + l.yz) / 2.0,
-        l.yz);
+        la.yz,
+        mixLch(la, lb).yz,
+        lb.yz);
 
     float d[N];
     float dMin = 1e9;
@@ -101,13 +133,17 @@ void main() {
     // underflow every weight to zero.
     float chroma = length(src.yz);
     vec2 ab = vec2(0.0);
+    float L = 0.0;
     float total = 0.0;
     for (int i = 0; i < N; i++) {
         float w = exp(-(d[i] - dMin) / (2.0 * SIGMA * SIGMA));
-        float ratio = clamp(chroma / length(anchors[i].yz), 0.0, MAX_RATIO);
+        // The logo takes its ends' chroma outright: a faint end would
+        // otherwise fade the gradient into the field.
+        float ratio = i < 3 ? clamp(chroma / length(anchors[i].yz), 0.0, MAX_RATIO) : 1.0;
         ab += w * ratio * targets[i];
+        L += w * (i == 0 ? FIELD_L * src.x : src.x);
         total += w;
     }
 
-    fragColor = vec4(fromOklab(vec3(src.x, ab / total)), 1.0) * qt_Opacity;
+    fragColor = vec4(fromOklab(vec3(L / total, ab / total)), 1.0) * qt_Opacity;
 }

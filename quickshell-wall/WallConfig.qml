@@ -10,24 +10,29 @@ Singleton {
 
     // ---- Paths ----
     // Wallpapers are <name>.mp4 videos, each with a <name>.png still beside
-    // it - the still is what the image picker shows and what wallust themes
-    // from. Searched recursively.
+    // it - the still is what the image picker shows and what the theme is
+    // built from. Searched recursively.
     readonly property string videoDir: root.home + "/vids/wallpapers"
     // The playing video's path or URL, rewritten on every switch. Read back
     // when startup is "last".
     readonly property string stateFile: root.cacheDir + "/current_wallpaper"
-    // wallust's output for the main shell's Theme (see
+    // The theme's palette as the main shell's Theme reads it (see
     // quickshell/modules/theme/Theme.qml) - transitions take their edge
     // colour from it.
     readonly property string paletteFile: root.cacheDir + "/quickshell/palette.json"
+    // wallpal's raw output (scripts/hypr-theme); the portrait reads its
+    // "edge" colour, which wallust templates can't pass through.
+    readonly property string wallpalFile: root.cacheDir + "/wallpal/current.json"
     // `qs ipc call wallpaper stream` - the Stevens Pass cam.
     readonly property string streamUrl: "https://streamer8.brownrice.com/stevenspassjupiter/stevenspassjupiter.stream/main_playlist.m3u8"
 
     // ---- Commands ----
     // Run with the new video's still appended, once that video is playing.
-    readonly property var themeCommand: ["wallust", "run"]
+    // scripts/hypr-theme: wallpal builds the palette, wallust renders the
+    // templates from it, then wallust.toml's [hooks] run.
+    readonly property var themeCommand: ["hypr-theme"]
     // `qs ipc call wallpaper clear` - back to the default theme.
-    readonly property var clearThemeCommand: ["wallust", "cs", "default"]
+    readonly property var clearThemeCommand: ["hypr-theme", "--default"]
 
     // ---- Portrait screen ----
     // Videos don't crop well to the rotated monitor, so it gets a static

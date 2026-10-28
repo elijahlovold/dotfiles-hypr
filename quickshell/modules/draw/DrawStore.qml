@@ -23,7 +23,7 @@ Singleton {
     // Second palette row - the shell's actual wallust palette, so it's easy
     // to annotate in a color that blends with the current theme instead of
     // always reaching for the high-contrast row above. Stays reactive to
-    // Theme's bindings, so a `wallust run` re-theme updates this live.
+    // Theme's bindings, so a re-theme updates this live.
     readonly property var themeColors: [Theme.color1, Theme.color2, Theme.color3, Theme.color4, Theme.color5, Theme.color6, Theme.color7, Theme.color8]
     readonly property var widths: [2, 4, 7]
 
