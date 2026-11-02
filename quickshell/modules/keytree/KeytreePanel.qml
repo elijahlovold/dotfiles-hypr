@@ -84,7 +84,9 @@ OverlaySurface {
 
     function launch(cmd) {
         root.launched = true;
-        Quickshell.execDetached(["sh", "-c", cmd]);
+        // cmd rides in as $1 so its quoting can't break the wrapper. A
+        // missing binary (127) or any non-zero exit raises a notification.
+        Quickshell.execDetached(["sh", "-c", 'sh -c "$1" || notify-send -a Keytree -u critical -t 5000 "Command failed" "exit $?: $1"', "keytree", cmd]);
     }
 
     // Click-catcher for the rest of the screen: a press anywhere off the
