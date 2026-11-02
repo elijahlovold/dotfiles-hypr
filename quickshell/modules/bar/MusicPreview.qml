@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Widgets
 import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
@@ -18,6 +19,7 @@ PillPopup {
 
     cardWidth: card.width
     cardHeight: card.height
+    floatZoom: 1.4
 
     required property MprisPlayer player
 
@@ -125,6 +127,26 @@ PillPopup {
         popup.player.rate = steps[(idx + 1) % steps.length];
     }
 
+    // ---- Floating-only spectrum visualizer ----
+    // `cava` in raw mode: one line per frame, `bandCount` values 0..100
+    // separated by ';'. Only runs while floating and playing, so a docked
+    // popup (or a paused one) costs nothing.
+    readonly property int bandCount: 40
+    property var bands: []
+
+    Process {
+        id: cava
+        running: popup.floating && (popup.player?.isPlaying ?? false)
+        command: ["bash", "-c", 'exec cava -p <(printf "%s\\n" "[general]" "bars = $0" "framerate = 30" "[input]" "method = pipewire" "source = auto" "[output]" "method = raw" "raw_target = /dev/stdout" "data_format = ascii" "ascii_max_range = 100" "bar_delimiter = 59" "frame_delimiter = 10")', String(popup.bandCount)]
+        stdout: SplitParser {
+            onRead: line => popup.bands = line.split(";").filter(v => v.length > 0).map(Number)
+        }
+        onRunningChanged: {
+            if (!running)
+                popup.bands = [];
+        }
+    }
+
     // Keeps position/length-derived bindings (the progress bar) live -
     // Mpris doesn't push position updates on its own.
     Timer {
@@ -144,6 +166,41 @@ PillPopup {
             anchors.centerIn: parent
             width: parent.width - 32
             spacing: 12
+
+            // Mirrored bars around the midline, accent-tinted and brighter
+            // toward the peaks; idle bars rest as a thin dotted line.
+            Item {
+                visible: popup.floating
+                width: parent.width
+                height: popup.floating ? 120 : 0
+
+                Row {
+                    anchors.fill: parent
+                    spacing: 3
+
+                    Repeater {
+                        model: popup.bandCount
+
+                        Item {
+                            id: band
+                            required property int index
+                            readonly property real level: Math.max(0, Math.min(1, (popup.bands[band.index] ?? 0) / 100))
+
+                            width: (parent.width - (popup.bandCount - 1) * parent.spacing) / popup.bandCount
+                            height: parent.height
+
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: parent.width
+                                height: Math.max(2, band.level * parent.height)
+                                radius: Math.min(width / 2, 3)
+                                color: Theme.withAlpha(Theme.accent, 0.35 + 0.65 * band.level)
+                                Behavior on height { NumberAnimation { duration: 60 } }
+                            }
+                        }
+                    }
+                }
+            }
 
             Row {
                 width: parent.width

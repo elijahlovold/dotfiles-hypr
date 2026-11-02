@@ -25,11 +25,22 @@ PillPopup {
     cardHeight: card.height
     visible: popup.disksLoaded
 
-    readonly property int historyLength: 60 // samples = seconds
-    readonly property int sampleInterval: 1000
+    // Floating: a wider card with much taller traces; the text only grows a
+    // little (graphs are what's worth the room), and the whole thing is
+    // shrunk to fit if it would overflow the screen.
+    floatZoom: 1.15
+    readonly property real graphScale: popup.floating ? 2.2 : 1
+
+    // Sampled twice a second and scrolled continuously: each graph is drawn
+    // one sample behind and slides left over the sample interval, so the
+    // line is interpolated between samples and moves smoothly, at the cost
+    // of showing everything 0.5s late (see Graph).
+    readonly property int sampleInterval: 500
+    readonly property int historyLength: 30 // samples = 15s
 
     function pushed(history, value) {
-        return history.concat([value]).slice(-popup.historyLength);
+        // One extra point so the oldest is off the left edge, not inside it.
+        return history.concat([value]).slice(-(popup.historyLength + 1));
     }
 
     function fmtBytes(b) {
@@ -50,6 +61,27 @@ PillPopup {
         if (v < 1000)
             return (v < 10 ? v.toFixed(1) : Math.round(v)) + " Mbps";
         return (v / 1000).toFixed(2) + " Gbps";
+    }
+
+    // Appends a smooth curve through the points to the current canvas path,
+    // starting from (xs[0], ys[0]) - a monotone cubic (Fritsch-Carlson), so
+    // it flows like GNOME/Ubuntu's system monitor but never overshoots a
+    // peak or dips below zero between samples.
+    function curveThrough(ctx, xs, ys) {
+        const n = xs.length;
+        if (n < 2)
+            return;
+        const d = [];
+        for (let i = 0; i < n - 1; i++)
+            d.push((ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]));
+        const m = [d[0]];
+        for (let i = 1; i < n - 1; i++)
+            m.push(d[i - 1] * d[i] <= 0 ? 0 : Math.sign(d[i]) * Math.min((Math.abs(d[i - 1]) + Math.abs(d[i])) / 2, 3 * Math.min(Math.abs(d[i - 1]), Math.abs(d[i]))));
+        m.push(d[n - 2]);
+        for (let i = 0; i < n - 1; i++) {
+            const h = (xs[i + 1] - xs[i]) / 3;
+            ctx.bezierCurveTo(xs[i] + h, ys[i] + m[i] * h, xs[i + 1] - h, ys[i + 1] - m[i + 1] * h, xs[i + 1], ys[i + 1]);
+        }
     }
 
     // ---- Discovery (once per open, synchronous) ----
@@ -444,7 +476,7 @@ PillPopup {
                 gpuPowerFile.reload();
                 popup.sampleGpu();
             }
-            // Slower-moving / pricier reads every other tick (/proc/cpuinfo
+            // Slower-moving / pricier reads once a second (/proc/cpuinfo
             // makes the kernel sample every core's clock).
             if (popup.tick % 2 === 0) {
                 cpuinfoFile.reload();
@@ -476,7 +508,7 @@ PillPopup {
         property color mirrorColor: Theme.color7
         required property int capacity
 
-        height: 44
+        height: 44 * popup.graphScale
 
         onValuesChanged: canvas.requestPaint()
         onMirrorValuesChanged: canvas.requestPaint()
@@ -495,31 +527,51 @@ PillPopup {
             color: Theme.withAlpha(Theme.dimText, 0.35)
         }
 
-        Canvas {
-            id: canvas
+        // The canvas is one step wider than the view and slides left by that
+        // step over each sample interval; a new sample repaints it with the
+        // newest point one step beyond the edge and snaps it back (onPainted
+        // restarts the slide), so the motion is continuous.
+        Item {
+            id: view
             anchors.fill: parent
             anchors.margins: 1
+            clip: true
+            readonly property real step: width / (graph.capacity - 1)
+
+        Canvas {
+            id: canvas
+            width: view.width + view.step
+            height: view.height
+
+            NumberAnimation on x {
+                id: slide
+                running: false
+                from: 0
+                to: -view.step
+                duration: popup.sampleInterval
+            }
+            onPainted: slide.restart()
 
             function trace(ctx, vals, base, span, dir, color) {
                 if (vals.length < 2)
                     return;
-                const step = width / (graph.capacity - 1);
-                const xAt = i => width - (vals.length - 1 - i) * step;
-                const yAt = i => base + dir * Math.min(1, Math.max(0, vals[i] / graph.peak)) * span;
+                const step = view.step;
+                const xs = vals.map((v, i) => width - (vals.length - 1 - i) * step);
+                const ys = vals.map(v => base + dir * Math.min(1, Math.max(0, v / graph.peak)) * span);
                 ctx.beginPath();
-                ctx.moveTo(xAt(0), base);
-                for (let i = 0; i < vals.length; i++)
-                    ctx.lineTo(xAt(i), yAt(i));
+                ctx.moveTo(xs[0], base);
+                ctx.lineTo(xs[0], ys[0]);
+                popup.curveThrough(ctx, xs, ys);
                 ctx.lineTo(width, base);
                 ctx.closePath();
                 ctx.fillStyle = Theme.withAlpha(color, 0.3);
                 ctx.fill();
                 ctx.beginPath();
-                ctx.moveTo(xAt(0), yAt(0));
-                for (let i = 1; i < vals.length; i++)
-                    ctx.lineTo(xAt(i), yAt(i));
+                ctx.moveTo(xs[0], ys[0]);
+                popup.curveThrough(ctx, xs, ys);
                 ctx.strokeStyle = color;
-                ctx.lineWidth = 1;
+                ctx.lineWidth = 1.25;
+                ctx.lineJoin = "round";
                 ctx.stroke();
             }
 
@@ -534,6 +586,7 @@ PillPopup {
                     trace(ctx, graph.values, height, height, -1, graph.color);
                 }
             }
+        }
         }
     }
 
@@ -552,7 +605,7 @@ PillPopup {
         property var series: [] // per core, 0..1 values, newest last
         required property int capacity
 
-        height: 72
+        height: 72 * popup.graphScale
 
         onSeriesChanged: coreCanvas.requestPaint()
 
@@ -569,33 +622,48 @@ PillPopup {
             color: Theme.withAlpha(Theme.dimText, 0.2)
         }
 
-        Canvas {
-            id: coreCanvas
+        // Slides like Graph's canvas (see there).
+        Item {
+            id: coreView
             anchors.fill: parent
             anchors.margins: 1
+            clip: true
+            readonly property real step: width / (coreGraph.capacity - 1)
+
+        Canvas {
+            id: coreCanvas
+            width: coreView.width + coreView.step
+            height: coreView.height
+
+            NumberAnimation on x {
+                id: coreSlide
+                running: false
+                from: 0
+                to: -coreView.step
+                duration: popup.sampleInterval
+            }
+            onPainted: coreSlide.restart()
+
             onPaint: {
                 const ctx = getContext("2d");
                 ctx.reset();
-                const step = width / (coreGraph.capacity - 1);
+                const step = coreView.step;
                 ctx.lineWidth = 1.5;
                 ctx.lineJoin = "round";
                 for (let c = 0; c < coreGraph.series.length; c++) {
                     const vals = coreGraph.series[c];
                     if (vals.length < 2)
                         continue;
+                    const xs = vals.map((v, i) => width - (vals.length - 1 - i) * step);
+                    const ys = vals.map(v => height - Math.min(1, Math.max(0, v)) * (height - 1));
                     ctx.beginPath();
-                    for (let i = 0; i < vals.length; i++) {
-                        const x = width - (vals.length - 1 - i) * step;
-                        const y = height - Math.min(1, Math.max(0, vals[i])) * (height - 1);
-                        if (i === 0)
-                            ctx.moveTo(x, y);
-                        else
-                            ctx.lineTo(x, y);
-                    }
+                    ctx.moveTo(xs[0], ys[0]);
+                    popup.curveThrough(ctx, xs, ys);
                     ctx.strokeStyle = popup.coreColor(c);
                     ctx.stroke();
                 }
             }
+        }
         }
     }
 
@@ -675,7 +743,7 @@ PillPopup {
 
     Item {
         id: card
-        width: 400
+        width: popup.floating ? 640 : 400
         height: layout.implicitHeight + 32
 
         Column {

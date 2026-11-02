@@ -191,9 +191,9 @@ OverlaySurface {
                 Bolts.setOrigin(Qt.point(p.x + root.screen.x, p.y + root.screen.y));
             // Bar popups are summoned in-process rather than round-tripping
             // through `qs ipc`, so the bolt leaves the node immediately.
-            const popup = cmd.match(/^qs ipc call barpopup open (\S+)$/);
+            const popup = cmd.match(/^qs ipc call barpopup (open|float) (\S+)$/);
             if (popup)
-                BarPopups.summon(popup[1]);
+                BarPopups.summon(popup[2], popup[1] === "float");
             else
                 root.launch(cmd);
             root.requestClose();

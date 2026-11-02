@@ -11,7 +11,9 @@ import qs.modules.overlay
 // Widgets opt in with a PopupTarget child; summon() picks the instance on
 // the focused monitor's bar, fires a lightning strike at its pill (drawn by
 // modules/bolt - from the keytree node that summoned it, if any) and opens
-// the popup the moment the bolt lands.
+// the popup the moment the bolt lands. summon(name, true) opens it as a
+// floating window centred on the screen instead (see PillPopup), with the
+// bolt aimed at the screen centre.
 //
 // Lives in common rather than bar so modules outside bar (bambu) can
 // register without bar <-> bambu becoming a circular import.
@@ -39,8 +41,9 @@ Singleton {
         return item;
     }
 
-    function summon(name) {
-        if (!root.barShown) {
+    function summon(name, floating) {
+        // A floating popup doesn't hang from the bar, so a hidden bar is fine.
+        if (!root.barShown && !floating) {
             Quickshell.execDetached(["notify-send", "-a", "Quickshell", "-u", "low", "-t", "1500", "Bar", "Bar is hidden (Super+Ctrl+Space)"]);
             return;
         }
@@ -52,10 +55,15 @@ Singleton {
         }
         const target = candidates.find(t => t.screenName === focused) ?? candidates[0];
         const pill = root.findPill(target.widget);
-        const hit = pill.mapToItem(null, pill.width / 2, pill.height);
+        let hit = pill.mapToItem(null, pill.width / 2, pill.height);
+        if (floating) {
+            const host = Overlays.hostFor(target.screenName);
+            hit = Qt.point((host?.width ?? 0) / 2, (host?.height ?? 0) / 2);
+        }
 
         root.pending = target;
         root.pendingPill = pill;
+        root.pendingFloating = floating === true;
         // Keep the keyboard on the overlay through the bolt's flight, so
         // a summon from keytree hands focus straight to the popup.
         Overlays.hold(target.screenName);
@@ -72,14 +80,26 @@ Singleton {
 
     property var pending: null
     property Item pendingPill: null
+    property bool pendingFloating: false
 
     function land() {
+        const widget = root.pending?.widget ?? null;
+        const floating = root.pendingFloating;
         // `summoned` lets PillPopup close it again on its own if the
         // cursor never comes over (no hover -> no hover-out to close it).
-        if (root.pendingPill?.isPill)
+        // Floating popups take the keyboard themselves and never hover-close.
+        if (!floating && root.pendingPill?.isPill)
             root.pendingPill.summoned = true;
-        if (root.pending?.widget)
-            root.pending.widget.previewOpen = true;
+        if (widget) {
+            // Already open in the other mode: reopen in the requested one.
+            if (widget.previewOpen && Overlays.isFloating(widget) !== floating)
+                widget.previewOpen = false;
+            if (floating)
+                Overlays.floatingAnchor = widget;
+            else if (Overlays.isFloating(widget))
+                Overlays.floatingAnchor = null;
+            widget.previewOpen = true;
+        }
         root.pending = null;
         root.pendingPill = null;
         // The popup has claimed the keyboard by now (if it could open).
@@ -96,6 +116,9 @@ Singleton {
 
         function open(name: string): void {
             root.summon(name);
+        }
+        function float(name: string): void {
+            root.summon(name, true);
         }
         function list(): string {
             return [...new Set(root.targets.map(t => t.name))].sort().join("\n");

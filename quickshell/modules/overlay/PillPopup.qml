@@ -32,6 +32,19 @@ import qs.modules.theme
 //   }
 // Owning widgets open it through a PopupOpener (bar/PopupOpener.qml).
 //
+// Docked or floating: the same popup can instead open as a window centred on
+// the screen, detached from the bar (`popup.floating`, set by
+// BarPopups.summon(name, true) / `qs ipc call barpopup float <name>`). Only
+// the chrome and placement differ - content, state and keys are shared, so a
+// popup works in both modes with no changes: floating just shows its card
+// scaled by `zoom` (floatZoom, capped to fit the screen). A popup that wants
+// a real floating layout reads `popup.floating` in its content (e.g. a wider
+// card, taller graphs, extra widgets) and usually lowers floatZoom to match.
+// Dragging any empty part of a floating popup (not a control) moves it like
+// a window (OverlaySurface.dragMove).
+// Floating popups always hold the keyboard, so Escape, a click outside or
+// another surface taking the keyboard closes them like a docked one.
+//
 // Keyboard: the popup becomes the modal OverlaySurface (Exclusive keyboard
 // focus) when it's opened from the keyboard (BarPopups / Super+P) or clicked
 // anywhere inside. While focused it stays open regardless of hover; Escape,
@@ -54,6 +67,23 @@ OverlaySurface {
     readonly property bool hovered: hoverHandler.hovered || popup.keyboardActive
 
     property bool keyboardActive: false
+
+    // ── Docked / floating ────────────────────────────────────────────────
+    readonly property bool floating: Overlays.isFloating(popup.anchorItem)
+    // Card scale in floating mode; popups with their own floating layout
+    // lower it.
+    property real floatZoom: 1.5
+    readonly property real zoom: {
+        if (!popup.floating)
+            return 1;
+        const w = popup.parent?.width ?? 0, h = popup.parent?.height ?? 0;
+        if (w <= 0 || h <= 0 || popup.cardWidth <= 0 || popup.cardHeight <= 0)
+            return popup.floatZoom;
+        return Math.min(popup.floatZoom, 0.92 * w / popup.cardWidth, 0.92 * h / popup.cardHeight);
+    }
+    // Whether this popup counted itself on its pill (docked at creation).
+    property bool attached: false
+    draggable: popup.floating
     signal vimAction(string name, int count)
     signal keyboardActivated
 
@@ -123,8 +153,8 @@ OverlaySurface {
     // a pixel centre (see buildPath).
     readonly property real neck: popup.fillet + 0.5
     // Always wide enough for a fillet + corner on both sides of the tab.
-    readonly property real frameWidth: Math.max(popup.cardWidth, (popup.pill?.width ?? 0) + 2 * (popup.fillet + popup.cornerRadius + 1))
-    readonly property real frameHeight: popup.neck + popup.cardHeight
+    readonly property real frameWidth: popup.floating ? Math.round(popup.cardWidth * popup.zoom) : Math.max(popup.cardWidth, (popup.pill?.width ?? 0) + 2 * (popup.fillet + popup.cornerRadius + 1))
+    readonly property real frameHeight: popup.floating ? Math.round(popup.cardHeight * popup.zoom) : popup.neck + popup.cardHeight
 
     // Written by layout(): tab edges relative to the frame, and whether a
     // side runs straight down (no room for a fillet, e.g. the rightmost pill
@@ -135,6 +165,14 @@ OverlaySurface {
     property bool flushRight: false
 
     function layout() {
+        if (popup.floating) {
+            if (popup.moved)
+                return;
+            const pw = popup.parent?.width ?? 0, ph = popup.parent?.height ?? 0;
+            popup.x = Math.round((pw - popup.frameWidth) / 2);
+            popup.y = Math.round((ph - popup.frameHeight) / 2);
+            return;
+        }
         if (!popup.pill)
             return;
         const pos = popup.pill.mapToItem(null, 0, 0);
@@ -187,6 +225,17 @@ OverlaySurface {
     // changing width), or the frame changes size.
     onHostChanged: popup.layout()
     onFrameWidthChanged: popup.layout()
+    onFrameHeightChanged: popup.layout()
+    onParentChanged: popup.layout()
+    Connections {
+        target: popup.floating ? popup.parent : null
+        function onWidthChanged() {
+            popup.layout();
+        }
+        function onHeightChanged() {
+            popup.layout();
+        }
+    }
     Connections {
         target: popup.pill
         function onWidthChanged() {
@@ -204,15 +253,24 @@ OverlaySurface {
     }
 
     Component.onCompleted: {
+        if (popup.floating) {
+            popup.layout();
+            popup.activateKeyboard();
+            return;
+        }
+        popup.attached = true;
         if (popup.pill?.isPill)
             popup.pill.openPopups++;
         popup.takeSummon();
     }
     Component.onDestruction: {
-        if (popup.pill?.isPill) {
+        if (popup.attached && popup.pill?.isPill) {
             popup.pill.openPopups = Math.max(0, popup.pill.openPopups - 1);
             popup.pill.summoned = false;
         }
+        // Not if it was just reopened (the old item is destroyed late).
+        if (popup.anchorItem && Overlays.floatingAnchor === popup.anchorItem && !popup.anchorItem.previewOpen)
+            Overlays.floatingAnchor = null;
     }
 
     // Opened from the keyboard (BarPopups / Super+P) -> take focus straight
@@ -234,7 +292,7 @@ OverlaySurface {
     // Hangs from the bar, so it goes when the bar does (Super+Ctrl+Space).
     readonly property bool barShown: popup.anchorItem.QsWindow.window?.visible ?? true
     onBarShownChanged: {
-        if (!popup.barShown)
+        if (!popup.barShown && !popup.floating)
             popup.close();
     }
 
@@ -260,7 +318,12 @@ OverlaySurface {
             easing.type: Easing.OutCubic
         }
         readonly property real minHeight: popup.neck + 2 * popup.cornerRadius + 1
-        readonly property real drawnHeight: frame.minHeight + Math.max(0, popup.frameHeight - frame.minHeight) * frame.reveal
+        readonly property real drawnHeight: popup.floating ? popup.frameHeight : frame.minHeight + Math.max(0, popup.frameHeight - frame.minHeight) * frame.reveal
+
+        // Floating: fades and settles in place rather than dropping out of
+        // the pill.
+        opacity: popup.floating ? frame.reveal : 1
+        scale: popup.floating ? 0.94 + 0.06 * frame.reveal : 1
 
         HoverHandler {
             id: hoverHandler
@@ -270,7 +333,31 @@ OverlaySurface {
             }
         }
 
+        Rectangle {
+            visible: popup.floating
+            anchors.fill: parent
+            radius: 12
+            color: Theme.pillBg
+            border.width: 1
+            border.color: Theme.pillBorder
+        }
+
+        // Under the content, so it only gets presses no control took: drag
+        // the empty parts of a floating popup to move it.
+        MouseArea {
+            anchors.fill: parent
+            enabled: popup.floating
+            acceptedButtons: Qt.LeftButton
+            cursorShape: pressed ? Qt.ClosedHandCursor : Qt.ArrowCursor
+            onPressed: mouse => popup.dragStart(mapToItem(popup.parent, mouse.x, mouse.y))
+            onPositionChanged: mouse => {
+                if (pressed)
+                    popup.dragMove(mapToItem(popup.parent, mouse.x, mouse.y));
+            }
+        }
+
         Shape {
+            visible: !popup.floating
             anchors.fill: parent
             preferredRendererType: Shape.CurveRenderer
 
@@ -293,17 +380,19 @@ OverlaySurface {
         }
 
         Item {
-            x: (popup.frameWidth - popup.cardWidth) / 2
-            y: popup.neck
-            width: popup.cardWidth
-            height: Math.max(0, frame.drawnHeight - popup.neck)
-            clip: frame.reveal < 1
-            opacity: frame.reveal
+            x: popup.floating ? 0 : (popup.frameWidth - popup.cardWidth) / 2
+            y: popup.floating ? 0 : popup.neck
+            width: popup.floating ? popup.frameWidth : popup.cardWidth
+            height: popup.floating ? popup.frameHeight : Math.max(0, frame.drawnHeight - popup.neck)
+            clip: !popup.floating && frame.reveal < 1
+            opacity: popup.floating ? 1 : frame.reveal
 
             Item {
                 id: body
                 width: popup.cardWidth
                 height: popup.cardHeight
+                scale: popup.zoom
+                transformOrigin: Item.TopLeft
             }
         }
 

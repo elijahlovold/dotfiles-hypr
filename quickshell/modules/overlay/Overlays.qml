@@ -46,6 +46,16 @@ Singleton {
         return Hyprland.focusedMonitor?.name ?? Quickshell.screens[0]?.name ?? "";
     }
 
+    // ── Popup presentation ───────────────────────────────────────────────────
+    // The bar widget whose PillPopup should open as a centred floating
+    // window instead of docked under its pill (BarPopups.summon(name, true)
+    // sets it just before opening; PillPopup clears it when it goes).
+    property Item floatingAnchor: null
+
+    function isFloating(anchor) {
+        return anchor !== null && root.floatingAnchor === anchor;
+    }
+
     // ── Keyboard ownership ───────────────────────────────────────────────────
     property Item modal: null
 

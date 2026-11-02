@@ -32,7 +32,28 @@ FocusScope {
     property QtObject host: null // OverlayHost window
     readonly property ShellScreen screen: surface.host?.screen ?? null
 
+    // Movable with Super+drag (OverlayHost routes the cursor samples):
+    // once moved it keeps its place instead of being laid out again.
+    property bool draggable: false
+    property bool moved: false
+    property point dragOffset
+
     signal dismissed
+
+    // `p` in host coordinates. False if it isn't a grab on this surface.
+    function dragStart(p) {
+        if (!surface.draggable || p.x < surface.x || p.y < surface.y || p.x > surface.x + surface.width || p.y > surface.y + surface.height)
+            return false;
+        surface.dragOffset = Qt.point(p.x - surface.x, p.y - surface.y);
+        return true;
+    }
+
+    function dragMove(p) {
+        const pw = surface.parent?.width ?? 0, ph = surface.parent?.height ?? 0;
+        surface.moved = true;
+        surface.x = Math.max(0, Math.min(p.x - surface.dragOffset.x, pw - surface.width));
+        surface.y = Math.max(0, Math.min(p.y - surface.dragOffset.y, ph - surface.height));
+    }
 
     function dismiss() {
         surface.dismissed();

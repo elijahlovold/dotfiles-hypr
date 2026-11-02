@@ -74,6 +74,14 @@ Singleton {
 
     readonly property var trees: ({
       "default": {
+        "i": { icon: "  ", label: "Iriun",    cmd: "iriunwebcam" },
+        "k": { icon: "  ", label: "Bible",    cmd: "alacritty -e nvim ~/dox/bible_kjv.txt" },
+        "l": { icon: "  ", label: "Download", cmd: "xdg-open \"$HOME/dl/$(ls -t $HOME/dl | head -n 1)\"" },
+        "c": { icon: "󰄛  ", label: "C&H",      cmd: "mupdf -r 180 ~/dox/books/The\\ Complete\\ Calvin\\ \\&\\ Hobbes.pdf $((1 + RANDOM % 1350))" },
+        "o": { icon: "  ", label: "Obsidian", cmd: "obsidian \"obsidian://open?vault=vault\"" , shift_cmd: "obsidian \"obsidian://open?vault=Shared-Vault\"" },
+        "p": { icon: "  ", label: "Python",   cmd: "alacritty -e python3.14" },
+        "t": { icon: "󰄛  ", label: "Kitty",    cmd: "kitty" },
+        "z": { icon: "󰈙  ", label: "Zathura",  cmd: "zathura" },
         "b": {
           label: "Bookmarks/",
           icon: "  ",
@@ -158,18 +166,12 @@ Singleton {
             "b": { icon: "  ", label: "Bitbucket", cmd: "google-chrome https://bitbucket.org/cadenceneuro/workspace/overview/" },
             "c": { icon: "  ", label: "Calendar",  cmd: "google-chrome https://calendar.google.com/calendar/u/0/r" },
             "d": { icon: "  ", label: "Drive",     cmd: "google-chrome https://drive.google.com/drive/home" },
-            "i": { icon: "  ", label: "Iriun",     cmd: "iriunwebcam" },
             "j": { icon: "  ", label: "Jira",      cmd: "google-chrome https://cadenceneuro.atlassian.net/issues?filter=11558" },
             "m": { icon: "󰇮  ", label: "Mail",      cmd: "google-chrome https://mail.google.com/mail/u/0/#inbox" },
             "o": { icon: "  ", label: "Obsidian",  cmd: "obsidian \"obsidian://open?vault=Shared-Vault\"" },
             "w": { icon: "󰧑  ", label: "Wiki",      cmd: "google-chrome https://sites.google.com/cadenceneuro.com/team/home?pli=1" },
           }
         },
-        "k": { icon: "  ", label: "Bible",    cmd: "alacritty -e nvim ~/dox/bible_kjv.txt" },
-        "l": { icon: "  ", label: "Download", cmd: "xdg-open \"$HOME/dl/$(ls -t $HOME/dl | head -n 1)\"" },
-        "m": { icon: "󰄛  ", label: "CaH",      cmd: "mupdf -r 180 ~/dox/books/The\\ Complete\\ Calvin\\ \\&\\ Hobbes.pdf $((1 + RANDOM % 1350))" },
-        "o": { icon: "  ", label: "Obsidian", cmd: "obsidian \"obsidian://open?vault=vault\"" , shift_cmd: "obsidian \"obsidian://open?vault=Shared-Vault\"" },
-        "p": { icon: "  ", label: "Python",   cmd: "alacritty -e python3.14" },
         "s": {
           label: "Social/",
           icon: "  ",
@@ -194,30 +196,31 @@ Singleton {
             "t": { icon: "󰖂  ", label: "TailScale", cmd: "firefox https://login.tailscale.com/" },
           }
         },
-        "w": { icon: "󰸉  ", label: "Wallpaper", cmd: "qs ipc call imagepicker toggle" },
-        "y": { icon: "󱐋  ", label: "Yazi",    cmd: "kitty -e zsh -c yazi" },
       },
+
+      // -~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
 
       // Super+P - open a bar popup from the keyboard (lightning-strike
       // reveal, see modules/common/BarPopups.qml + modules/bolt).
       "popups": {
-        "m": { icon: "  ", label: "Music", cmd: "qs ipc call barpopup open music" },
-        "s": { icon: "  ", label: "Sound", cmd: "qs ipc call barpopup open sound" },
-        "w": { icon: "  ", label: "Wi-Fi", cmd: "qs ipc call barpopup open wifi" },
-        "d": { icon: "  ", label: "Drives", cmd: "qs ipc call barpopup open drives" },
-        "r": { icon: "  ", label: "Record", cmd: "qs ipc call barpopup open screenrec" },
-        "g": { icon: "󰵸  ", label: "GIF maker", cmd: "qs ipc call gif toggle" },
-        "e": { icon: "  ", label: "Serial", cmd: "qs ipc call barpopup open serial" },
-        "c": { icon: "  ", label: "Calendar", cmd: "qs ipc call barpopup open calendar" },
-        "p": { icon: "  ", label: "Color picker", cmd: "qs ipc call barpopup open colorpicker" },
-        "u": { icon: "  ", label: "Unit tools", cmd: "qs ipc call barpopup open unittools" },
-        "t": { icon: "  ", label: "Theme", cmd: "qs ipc call barpopup open theme" },
-        "n": { icon: "  ", label: "Notifications", cmd: "qs ipc call barpopup open notifications" },
-        "b": { icon: "  ", label: "Bambu", cmd: "qs ipc call barpopup open bambu" },
-        "y": { icon: "󱇯  ", label: "Stator", cmd: "qs ipc call barpopup open stator" },
-        "h": { icon: "  ", label: "System monitor", cmd: "qs ipc call barpopup open sysmon" },
+        "b": { icon: "  ", label: "Bambu",          cmd: "qs ipc call barpopup float bambu", shift_cmd: "qs ipc call barpopup open bambu" },
+        "c": { icon: "  ", label: "Calendar",       cmd: "qs ipc call barpopup float calendar", shift_cmd: "qs ipc call barpopup open calendar" },
+        "d": { icon: "  ", label: "Drives",         cmd: "qs ipc call barpopup float drives", shift_cmd: "qs ipc call barpopup open drives" },
+        "e": { icon: "  ", label: "Serial",         cmd: "qs ipc call barpopup float serial", shift_cmd: "qs ipc call barpopup open serial" },
+        "h": { icon: "  ", label: "System monitor", cmd: "qs ipc call barpopup float sysmon", shift_cmd: "qs ipc call barpopup open sysmon" },
+        "i": { icon: "  ", label: "Wi-Fi",          cmd: "qs ipc call barpopup float wifi", shift_cmd: "qs ipc call barpopup open wifi" },
+        "m": { icon: "  ", label: "Music",          cmd: "qs ipc call barpopup float music", shift_cmd: "qs ipc call barpopup open music" },
+        "n": { icon: "  ", label: "Notifications",  cmd: "qs ipc call barpopup float notifications", shift_cmd: "qs ipc call barpopup open notifications" },
+        "p": { icon: "  ", label: "Color picker",   cmd: "qs ipc call barpopup float colorpicker", shift_cmd: "qs ipc call barpopup open colorpicker" },
+        "r": { icon: "  ", label: "Record",         cmd: "qs ipc call barpopup float screenrec", shift_cmd: "qs ipc call barpopup open screenrec" },
+        "s": { icon: "  ", label: "Sound",          cmd: "qs ipc call barpopup float sound", shift_cmd: "qs ipc call barpopup open sound" },
+        "t": { icon: "  ", label: "Theme",          cmd: "qs ipc call barpopup float theme", shift_cmd: "qs ipc call barpopup open theme" },
+        "u": { icon: "  ", label: "Unit tools",     cmd: "qs ipc call barpopup float unittools", shift_cmd: "qs ipc call barpopup open unittools" },
+        "y": { icon: "󱇯  ", label: "Stator"        , cmd: "qs ipc call barpopup float stator", shift_cmd: "qs ipc call barpopup open stator" },
+        "g": { icon: "󰵸  ", label: "GIF maker"     , cmd: "qs ipc call gif toggle" },
+        "w": { icon: "󰸉  ", label: "Wallpaper"     , cmd: "qs ipc call imagepicker toggle" },
         // Move every window on the current workspace to the picked one.
-        "i": {
+        "v": {
           label: "mv-win/",
           icon: "󰍹  ",
           children: {
@@ -281,6 +284,9 @@ Singleton {
           }
         },
       },
+
+      // -~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
+
       "stator": {
         "b": { icon: "󱎫  ", label: "Break",      cmd: "stator-rs --set-state break" },
         "c": { icon: "  ", label: "Chillin",    cmd: "stator-rs --set-state chill" },
