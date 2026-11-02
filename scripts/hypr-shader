@@ -21,7 +21,8 @@
 #               every refresh while one is on.
 #   off      -> 2 again, vfr back on.
 #
-# Rotated monitors: the shader sees each monitor's raw, unrotated buffer.
+# Rotated monitors: before Hyprland 0.57 the shader sees each monitor's raw,
+# unrotated buffer (from 0.57 it is already upright and nothing is baked in).
 # The copy actually loaded ($XDG_RUNTIME_DIR/hypr-shader/NAME.frag) gets
 # every monitor's rotation baked in, keyed by monitor id - the shader's
 # hyprTransform() - so effects point the same way on all of them. Ids and
@@ -82,8 +83,15 @@ off() {
 # their rotation). Prints the copy's path.
 build() {
     mkdir -p "$build_dir" || die "can't create $build_dir"
-    cases=$(hyprctl monitors -j | jq -r '.[] | "    if (wl_output == \(.id)) return \(.transform % 4);"') ||
-        die "couldn't read monitors"
+    # Hyprland 0.57 renders every output in normal orientation (#15714), so
+    # the shader already sees an upright buffer: no compensation needed.
+    ver=$(hyprctl version -j | jq -r '.tag // empty' | tr -d v)
+    if [ -n "$ver" ] && [ "$(printf '%s\n0.57.0\n' "$ver" | sort -V | head -n1)" = 0.57.0 ]; then
+        cases="    return 0;"
+    else
+        cases=$(hyprctl monitors -j | jq -r '.[] | "    if (wl_output == \(.id)) return \(.transform % 4);"') ||
+            die "couldn't read monitors"
+    fi
     out="$build_dir/$1.frag"
     awk -v cases="$cases" '$0 == "    // @transforms@" { print cases; next } { print }' "$2" >"$out" ||
         die "couldn't write $out"
