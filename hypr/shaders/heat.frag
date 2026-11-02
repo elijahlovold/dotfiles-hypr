@@ -58,10 +58,13 @@ vec2 hyprSample(vec2 p) { return hyprToRaw(vec2(p.x, 1.0 - p.y)); }
 #define textureLod(s, p, l) textureLod(s, hyprSample(p), l)
 
 #line 1
+// Heat shimmer over the bottom of the screen (lib/heat.glsl).
+
+// ---- lib/heat.glsl ----
 // Heat shimmer: the screen wavers as if seen over hot asphalt, strongest at
 // the bottom and fading out towards the top.
 
-// ---- lib/hash.glsl ----
+// ---- hash.glsl ----
 // Integer hashes. Hash integer cell/slot ids with these, never a float
 // formula on the coordinates: those are smooth in the input, so
 // neighbouring cells get related values and patterns line up (the old
@@ -121,20 +124,23 @@ float fbm(vec2 p, int seed, int octaves) {
     }
     return v;
 }
-// ---- end lib/hash.glsl ----
+// ---- end hash.glsl ----
 
 #define HEAT_STRENGTH 4.0   // max displacement at the bottom, pixels
 #define HEAT_HEIGHT 0.65    // fades out by this fraction of the screen height
-#define HEAT_RISE 0.35      // how fast the waves rise, screen heights per second
+#define HEAT_RISE 0.35      // how fast the waves rise, short sides per second
 
-void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+// The screen at fragCoord seen through the haze. Above HEAT_HEIGHT it's a
+// plain lookup, with no noise work.
+vec3 heat(vec2 fragCoord) {
     vec2 uv = fragCoord / iResolution.xy;
-    vec2 P = fragCoord / iResolution.y;
     float amount = smoothstep(HEAT_HEIGHT, 0.0, uv.y);
-    if (amount <= 0.0) {
-        fragColor = vec4(texture(iChannel0, uv).rgb, 1.0);
-        return;
-    }
+    if (amount <= 0.0)
+        return texture(iChannel0, uv).rgb;
+    // Wave size in units of the screen's short side (its height on a
+    // landscape monitor, as originally), so the waves are the
+    // same size in pixels on a portrait monitor.
+    vec2 P = fragCoord / min(iResolution.x, iResolution.y);
     // Rising, slowly churning turbulence: wide in x, tight in y like real
     // heat haze. The second sample drifts the other way so it never just
     // scrolls.
@@ -143,7 +149,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     float nx = fbm(q + vec2(0.0, iTime * 0.3), 41, 3) - 0.5;
     float ny = fbm(q * 0.8 + vec2(5.2, -iTime * 0.25), 43, 3) - 0.5;
     vec2 off = vec2(nx, ny * 0.6) * 2.0 * HEAT_STRENGTH * amount / iResolution.xy;
-    fragColor = vec4(texture(iChannel0, uv + off).rgb, 1.0);
+    return texture(iChannel0, uv + off).rgb;
+}
+// ---- end lib/heat.glsl ----
+
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    fragColor = vec4(heat(fragCoord), 1.0);
 }
 
 void main() {

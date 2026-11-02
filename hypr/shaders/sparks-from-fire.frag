@@ -58,14 +58,20 @@ vec2 hyprSample(vec2 p) { return hyprToRaw(vec2(p.x, 1.0 - p.y)); }
 #define textureLod(s, p, l) textureLod(s, hyprSample(p), l)
 
 #line 1
-// Desktop version of ghostty-shaders/sparks-from-fire.glsl for hypr-shader: the effect
-// is screen-blended over everything instead of replacing dark pixels, and
-// an uninitialised variable is fixed (Mesa drew nothing at all). For
-// speed, pixels a spark can't reach skip its noise work, and the 8
-// particle layers (nearly the same depth: each only SIZE_MOD = 5% bigger)
-// are drawn SPARK_MERGE at a time on a finer grid (see layeredParticles),
-// and the smoke uses 4 noise octaves instead of 6.
-// ---- lib/blend.glsl ----
+// Sparks from a fire over the screen (lib/sparks.glsl).
+
+// ---- lib/sparks.glsl ----
+// Sparks from a fire: glowing sparks drifting up through rising smoke,
+// screen-blended over the screen. Desktop version of
+// ghostty-shaders/sparks-from-fire.glsl: the effect is screen-blended over
+// everything instead of replacing dark pixels, and an uninitialised
+// variable is fixed (Mesa drew nothing at all). For speed, pixels a spark
+// can't reach skip its noise work, and the 8 particle layers (nearly the
+// same depth: each only SIZE_MOD = 5% bigger) are drawn SPARK_MERGE at a
+// time on a finer grid (see layeredParticles), and the smoke uses 4 noise
+// octaves instead of 6.
+
+// ---- blend.glsl ----
 // Screen blend: lightens base wherever fx is bright and leaves it alone
 // where fx is black. For effects ported from Ghostty, which instead replace
 // every dark pixel (meant for a terminal's black background, but on a
@@ -73,7 +79,7 @@ vec2 hyprSample(vec2 p) { return hyprToRaw(vec2(p.x, 1.0 - p.y)); }
 vec3 screenBlend(vec3 base, vec3 fx) {
     return 1.0 - (1.0 - base) * (1.0 - clamp(fx, 0.0, 1.0));
 }
-// ---- end lib/blend.glsl ----
+// ---- end blend.glsl ----
 
 // adapted by Alex Sherwin for Ghstty from https://www.shadertoy.com/view/wl2Gzc
 
@@ -224,7 +230,7 @@ vec2 randomAround2_2(in vec2 point, in vec2 range, in vec2 uv)
 // wobble and bloom stay in single-layer units, so sparks look the same;
 // each one stands for one of the pass's layers (picked per spark) and
 // takes that layer's alpha and smoke fade.
-vec3 fireParticles(in vec2 coarse, in vec2 originalUV, in float k, in int pass, in float smoke)
+vec3 fireParticles(in vec2 coarse, in vec2 shape, in float k, in int pass, in float smoke)
 {
     vec3 particles = vec3(0.0);
     vec2 uv = coarse * k;
@@ -259,11 +265,11 @@ vec3 fireParticles(in vec2 coarse, in vec2 originalUV, in float k, in int pass, 
 
     //Upper disappear curve randomization
     float border = (hash1_2(rootUV) - 0.5) * 2.0;
- 	float disappear = 1.0 - smoothstep(border, border + 0.5, originalUV.y);
+ 	float disappear = 1.0 - smoothstep(border, border + 0.5, shape.y);
 	
     //Lower appear curve randomization
     border = (hash1_2(rootUV + 0.214) - 1.8) * 0.7;
-    float appear = smoothstep(border, border + 0.4, originalUV.y);
+    float appear = smoothstep(border, border + 0.4, shape.y);
 
     // The layer this spark stands for: its alpha, and (as in the original)
     // more smoke hides more of the further layers' sparks.
@@ -279,7 +285,7 @@ vec3 fireParticles(in vec2 coarse, in vec2 originalUV, in float k, in int pass, 
 //time: one pass at the group's middle depth on a grid sqrt(SPARK_MERGE)
 //times finer, i.e. the same number of sparks. (Sparks wander in a circle
 //inside their cell, so on the finer grid that circle is smaller.)
-vec3 layeredParticles(in vec2 uv, in float smoke) 
+vec3 layeredParticles(in vec2 uv, in vec2 shape, in float smoke) 
 { 
     vec3 particles = vec3(0);
     float k = sqrt(float(SPARK_MERGE));
@@ -297,42 +303,57 @@ vec3 layeredParticles(in vec2 uv, in float smoke)
         //UV with applied movement
         vec2 bokehUV = (uv * size + iTime * MOVEMENT_DIRECTION * MOVEMENT_SPEED) + offset + noiseOffset; 
         
-        particles += fireParticles(bokehUV, uv, k, pass, smoke);
+        particles += fireParticles(bokehUV, shape, k, pass, smoke);
     }
     
     return particles;
 }
 
-void mainImage(out vec4 fragColor, in vec2 fragCoord) {
-    vec2 uv = (2.0 * fragCoord - iResolution.xy) / iResolution.x;
+// Sparks and smoke screen-blended over col, the screen at fragCoord.
+vec3 sparks(vec2 fragCoord, vec3 col) {
+    // Two spaces, which the original shares (both (2.0*fragCoord - res) / res.x,
+    // made for a landscape screen):
+    //  uv    - where sparks and smoke are: scaled by the long side, so they
+    //          keep their size on a portrait monitor.
+    //  shape - where on the screen the fades and vignette fall: the screen
+    //          squashed to the landscape box (x +-1, y +-short/long), so a
+    //          portrait monitor gets the same picture stretched upright
+    //          instead of the fades crowding its middle third.
+    // Identical to the original on a landscape monitor.
+    vec2 ndc = (2.0 * fragCoord - iResolution.xy) / iResolution.xy;
+    float longSide = max(iResolution.x, iResolution.y);
+    vec2 uv = ndc * iResolution.xy / longSide;
+    vec2 shape = ndc * vec2(1.0, min(iResolution.x, iResolution.y) / longSide);
     
-    // float vignette = 1.1 - smoothstep(0.4, 1.4, length(uv + vec2(0.0, 0.3)));
-    float vignette = 1.3 - smoothstep(0.4, 1.4, length(uv + vec2(0.0, 0.3)));
+    // float vignette = 1.1 - smoothstep(0.4, 1.4, length(shape + vec2(0.0, 0.3)));
+    float vignette = 1.3 - smoothstep(0.4, 1.4, length(shape + vec2(0.0, 0.3)));
     
     uv *= 2.5;
+    shape *= 2.5;
     
     // 4 octaves (originally 6): the last two, weighted 0.7^4 and 0.7^5 at
     // the finest scales, changed no pixel by more than ~1/255 on average.
     float smokeIntensity = layeredNoise1_2(uv * 10.0 + iTime * 4.0 * MOVEMENT_DIRECTION * MOVEMENT_SPEED, 1.7, 0.7, 4, 0.2);
-    smokeIntensity *= pow(smoothstep(-1.0, 1.6, uv.y), 2.0); 
+    smokeIntensity *= pow(smoothstep(-1.0, 1.6, shape.y), 2.0); 
     vec3 smoke = smokeIntensity * SMOKE_COLOR * vignette * SMOKE_INTENSITY_MULTIPLIER * SMOKE_ALPHA_MOD;
     
     //Cutting holes in smoke
     smoke *= pow(layeredNoise1_2(uv * 4.0 + iTime * 0.5 * MOVEMENT_DIRECTION * MOVEMENT_SPEED, 1.8, 0.5, 3, 0.2), 2.0) * 1.5;
     
-    vec3 particles = layeredParticles(uv, smokeIntensity);
+    vec3 particles = layeredParticles(uv, shape, smokeIntensity);
     
-    vec3 col = particles + smoke + SMOKE_COLOR * 0.02;
-	  col *= vignette;
+    vec3 fx = particles + smoke + SMOKE_COLOR * 0.02;
+	  fx *= vignette;
     
-    col = smoothstep(-0.08, 1.0, col);
+    fx = smoothstep(-0.08, 1.0, fx);
 
-    vec2 termUV = fragCoord.xy / iResolution.xy;
-    vec4 terminalColor = texture(iChannel0, termUV);
+    return screenBlend(col, fx);
+}
+// ---- end lib/sparks.glsl ----
 
-    vec3 blendedColor = screenBlend(terminalColor.rgb, col);
-    
-    fragColor = vec4(blendedColor, terminalColor.a);
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec3 col = texture(iChannel0, fragCoord / iResolution.xy).rgb;
+    fragColor = vec4(sparks(fragCoord, col), 1.0);
 }
 
 void main() {
