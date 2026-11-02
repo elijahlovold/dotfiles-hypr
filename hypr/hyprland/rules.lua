@@ -13,8 +13,8 @@ hl.workspace_rule({
 })
 
 hl.window_rule({
-    name = "float-ui-service",
-    match = { class = "^(ui_service\\.py|launch_workstation\\.py)$" },
+    name = "generic-float",
+    match = { class = "^(ui_service\\.py|launch_workstation\\.py|hyprland-share-picker)$" },
     float = true,
 })
 
