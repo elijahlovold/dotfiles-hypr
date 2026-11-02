@@ -21,7 +21,7 @@ OverlaySurface {
     required property string configName
 
     // Reject (Escape/back-at-root/outside click) and launch both go through
-    // this instead of emitting `dismissed` directly, so RadialView's node
+    // this instead of emitting `dismissed` directly, so the view's node
     // animations get a chance to play in reverse before the panel (and
     // everything in it) actually gets torn down by Keytree.qml's Loader.
     // Search mode has no entrance animation to reverse, so it still closes
@@ -53,6 +53,7 @@ OverlaySurface {
         root.closing = false;
         root.stack = [];
         root.backBolts = [];
+        root.nav = { kind: "open", key: "" };
         root.current = root.virtualRoot;
         Qt.callLater(root.openingSwirl);
     }
@@ -63,7 +64,7 @@ OverlaySurface {
 
     Timer {
         id: closeTimer
-        interval: radialView.closeWaitMs
+        interval: root.view?.closeWaitMs ?? 0
         onTriggered: root.dismissed()
     }
 
@@ -87,7 +88,8 @@ OverlaySurface {
     }
 
     // Click-catcher for the rest of the screen: a press anywhere off the
-    // content square closes the menu (what clicking outside did before).
+    // menu closes it (what clicking outside did before). The view decides
+    // what counts as on the menu, since fullscreen views cover everything.
     // Below contentItem, so presses on the menu itself only land here if
     // nothing in it took them - those are ignored.
     MouseArea {
@@ -96,7 +98,8 @@ OverlaySurface {
         enabled: root.interactive
         acceptedButtons: Qt.AllButtons
         onPressed: mouse => {
-            if (contentItem.contains(mapToItem(contentItem, mouse.x, mouse.y)))
+            const p = root.view ? mapToItem(root.view, mouse.x, mouse.y) : null;
+            if (root.searchMode ? contentItem.contains(mapToItem(contentItem, mouse.x, mouse.y)) : p && root.view.menuContains(p.x, p.y))
                 mouse.accepted = false;
             else
                 root.requestClose();
@@ -132,6 +135,9 @@ OverlaySurface {
     })
     property var current: root.virtualRoot
     property var stack: []
+    // How the current level was reached, for the view's transition:
+    // { kind: "open" | "enter" | "back", key }. Set before `current`.
+    property var nav: ({ kind: "open", key: "" })
     // Parallel to stack: each entry bolt's channel, reversed, so going back
     // runs the same path from that folder's node to the center (null if no
     // bolt was drawn going in).
@@ -151,13 +157,15 @@ OverlaySurface {
                 label: node.label ?? "",
                 icon: (node.icon ?? "").slice(0, 5),
                 isLeaf: !node.children,
-                cmd: node.cmd ?? ""
+                cmd: node.cmd ?? "",
+                shiftCmd: node.shift_cmd ?? ""
             });
         }
         return list;
     }
 
-    function pressKey(key) {
+    // `shift`: run the node's optional `shift_cmd` instead of `cmd`.
+    function pressKey(key, shift) {
         if (!key)
             return;
         const k = key.toLowerCase();
@@ -166,31 +174,37 @@ OverlaySurface {
             return;
         if (node.children) {
             // Aim at the picked node before the level swaps out from under it.
-            const picked = root.menuPoint(radialView.nodeFinalCenter(root.items.findIndex(it => it.key === k)));
+            const picked = root.menuPoint(root.view.nodeFinalCenter(root.items.findIndex(it => it.key === k)));
             root.stack = [...root.stack, root.current];
+            root.nav = { kind: "enter", key: k };
             root.current = node;
-            const struck = picked && root.menuBolt("enter", root.menuPoint(radialView.center), picked);
+            const struck = picked && root.menuBolt("enter", root.menuPoint(root.view.center), picked);
             root.backBolts = [...root.backBolts, struck ? menuBoltItem.geometry(true) : null];
-        } else if (node.cmd) {
+        } else if (node.cmd || node.shift_cmd) {
+            const cmd = (shift && node.shift_cmd) || node.cmd;
+            if (!cmd)
+                return;
             // The picked node becomes the origin of the next bolt (bar
             // popup / app window opening) - see modules/bolt/Bolts.qml.
-            const p = radialView.nodeCenter(k);
+            const p = root.view.nodeCenter(k);
             if (p)
                 Bolts.setOrigin(Qt.point(p.x + root.screen.x, p.y + root.screen.y));
             // Bar popups are summoned in-process rather than round-tripping
             // through `qs ipc`, so the bolt leaves the node immediately.
-            const popup = node.cmd.match(/^qs ipc call barpopup open (\S+)$/);
+            const popup = cmd.match(/^qs ipc call barpopup open (\S+)$/);
             if (popup)
                 BarPopups.summon(popup[1]);
             else
-                root.launch(node.cmd);
+                root.launch(cmd);
             root.requestClose();
         }
     }
 
     function back() {
         if (root.stack.length > 0) {
-            root.current = root.stack[root.stack.length - 1];
+            const parent = root.stack[root.stack.length - 1];
+            root.nav = { kind: "back", key: Object.keys(parent.children).find(k => parent.children[k] === root.current) ?? "" };
+            root.current = parent;
             root.stack = root.stack.slice(0, -1);
             const replay = root.backBolts[root.backBolts.length - 1];
             root.backBolts = root.backBolts.slice(0, -1);
@@ -201,9 +215,9 @@ OverlaySurface {
             // No entry bolt to retrace: from a random node of the parent
             // level, deferred so its nodes exist to start from.
             Qt.callLater(() => {
-                const from = root.menuPoint(radialView.nodeFinalCenter(Math.floor(Math.random() * root.items.length)));
+                const from = root.menuPoint(root.view.nodeFinalCenter(Math.floor(Math.random() * root.items.length)));
                 if (from)
-                    root.menuBolt("back", from, root.menuPoint(radialView.center));
+                    root.menuBolt("back", from, root.menuPoint(root.view.center));
             });
         } else {
             root.requestClose();
@@ -212,10 +226,10 @@ OverlaySurface {
 
     // ── Lightning (see modules/bolt, BoltConfig.keytree) ──────────────────────
     // Drawn by a BoltItem inside this window, so it's always above the menu.
-    // RadialView points are mapped into menuBoltItem's center-relative frame
-    // as they're read, before any level change can resize contentItem.
+    // View points are mapped into menuBoltItem's center-relative frame as
+    // they're read, before any level change can resize contentItem.
     function menuPoint(p) {
-        return p ? radialView.mapToItem(menuBoltItem, p.x, p.y) : null;
+        return p && root.view ? root.view.mapToItem(menuBoltItem, p.x, p.y) : null;
     }
 
     // Whether it struck. `replay`: a channel from menuBoltItem.geometry().
@@ -232,33 +246,32 @@ OverlaySurface {
     }
 
     function openingSwirl() {
-        const target = root.menuPoint(radialView.nodeFinalCenter(Math.floor(Math.random() * root.items.length)));
+        const target = root.view ? root.menuPoint(root.view.nodeFinalCenter(Math.floor(Math.random() * root.items.length))) : null;
         if (target)
-            root.menuBolt("swirl", root.menuPoint(radialView.center), target);
+            root.menuBolt("swirl", root.menuPoint(root.view.center), target);
     }
 
-    // ── Window sizing (mirrors Main.qml's baseSize/spiralWindowSize) ─────────
-    readonly property bool isSpiral: KeytreeConfig.layout.type === "spiral" && root.items.length >= KeytreeConfig.layout.spiralThreshold
-    readonly property bool twoRings: KeytreeConfig.layout.type === "ring" && root.items.length >= KeytreeConfig.layout.ringThreshold
+    // ── View ──────────────────────────────────────────────────────────────────
+    // KeytreeConfig.layout.type picks how levels are shown; every view is a
+    // KeytreeView (see KeytreeView.qml for the contract). Unknown types fall
+    // back to the ring.
+    readonly property var views: ({
+        ring: ringView,
+        hex: hexView,
+        hang: hangView,
+        tree: treeView
+    })
+    Component { id: ringView; RingView {} }
+    Component { id: hexView; HexView {} }
+    Component { id: hangView; HangView {} }
+    Component { id: treeView; BranchView {} }
 
-    function spiralWindowSize(n) {
-        const ringScale = KeytreeConfig.layout.ringScale;
-        if (n <= 1)
-            return 540 * ringScale;
-        const isCircle = KeytreeConfig.layout.shape === "circle";
-        const w = (isCircle ? 64 : 76) * KeytreeConfig.layout.nodeScale;
-        const h = (isCircle ? 64 : 56) * KeytreeConfig.layout.nodeScale;
-        const gap = KeytreeConfig.layout.gapPixels;
-        const b = isCircle ? (w + gap) / (2 * Math.PI) : (Math.sqrt(w * w + h * h) + gap) / (2 * Math.PI);
-        const hw = w / 2;
-        const a = 0.25 - 0.13 * 0.13;
-        const arc = 2 * b * n * (w + gap);
-        const disc = hw * hw * (1 - 4 * a) + 4 * a * arc;
-        return Math.max(540 * ringScale, Math.ceil((hw + Math.sqrt(disc)) / (2 * a) / 10) * 10);
-    }
+    readonly property KeytreeView view: viewLoader.item
 
-    readonly property real baseSize: root.isSpiral ? root.spiralWindowSize(root.items.length) : (root.twoRings ? 680 * KeytreeConfig.layout.ringScale : 540 * KeytreeConfig.layout.ringScale)
-    readonly property real winSize: Math.round(root.baseSize)
+    // Square views get a centered box of their preferred size; fullscreen
+    // ones the whole surface.
+    readonly property bool fullscreenView: root.view?.fullscreen ?? false
+    readonly property real winSize: Math.round(root.view?.preferredSize ?? 540)
 
     // ── Search mode (mirrors KeyTreeModel's PATH-scan search) ─────────────────
     readonly property int maxSearchResults: 10
@@ -350,8 +363,8 @@ OverlaySurface {
     Item {
         id: contentItem
         anchors.centerIn: parent
-        width: root.winSize
-        height: root.winSize
+        width: root.fullscreenView ? root.width : root.winSize
+        height: root.fullscreenView ? root.height : root.winSize
         focus: true
 
         // Circular tint behind the content, lined up with BackgroundEffect
@@ -370,6 +383,8 @@ OverlaySurface {
         // above stay tied to contentItem's own tighter bounds.
         Canvas {
             id: haloCanvas
+            // Only views that sit in a centered disc want it.
+            visible: root.view?.halo ?? false
             anchors.centerIn: parent
             readonly property real haloRadius: parent.width * 0.8
             width: haloRadius * 2
@@ -388,10 +403,10 @@ OverlaySurface {
                 SequentialAnimation {
                     // Same center-first lead-in as the nodes/connector lines.
                     PauseAnimation {
-                        duration: root.closing ? radialView.centerAnimDuration : 0
+                        duration: root.closing ? (root.view?.centerAnimDuration ?? 0) : 0
                     }
                     NumberAnimation {
-                        duration: radialView.totalAnimMs
+                        duration: root.view?.totalAnimMs ?? 300
                         easing.type: root.closing ? Easing.InCubic : Easing.OutBack
                     }
                 }
@@ -476,26 +491,33 @@ OverlaySurface {
                 return;
             }
             if (event.text.length > 0) {
-                root.pressKey(event.text);
+                root.pressKey(event.text, (event.modifiers & Qt.ShiftModifier) !== 0);
                 event.accepted = true;
             }
         }
 
-        RadialView {
-            id: radialView
+        Loader {
+            id: viewLoader
             anchors.fill: parent
-            items: root.items
-            fontScale: root.fontScale
-            nodeScale: root.nodeScale
-            centerLabel: root.currentLabel
-            atRoot: root.atRoot
-            layoutType: KeytreeConfig.layout.type
-            nodeShape: KeytreeConfig.layout.shape
-            ringThreshold: KeytreeConfig.layout.ringThreshold
-            spiralThreshold: KeytreeConfig.layout.spiralThreshold
-            spiralGapPixels: KeytreeConfig.layout.gapPixels
-            closing: root.closing
             visible: !root.searchMode
+            sourceComponent: root.views[KeytreeConfig.layout.type] ?? ringView
+            onLoaded: {
+                // Sizes and config first, then the level: views lay out
+                // as soon as `items` arrives.
+                const bind = {
+                    layoutConfig: () => KeytreeConfig.layout,
+                    spokes: () => KeytreeConfig.spokes,
+                    fontScale: () => root.fontScale,
+                    nodeScale: () => root.nodeScale,
+                    closing: () => root.closing,
+                    centerLabel: () => root.currentLabel,
+                    atRoot: () => root.atRoot,
+                    nav: () => root.nav,
+                    items: () => root.items
+                };
+                for (const name in bind)
+                    item[name] = Qt.binding(bind[name]);
+            }
         }
 
         SearchView {

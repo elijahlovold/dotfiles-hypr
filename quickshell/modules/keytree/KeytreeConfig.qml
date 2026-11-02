@@ -16,21 +16,60 @@ Singleton {
     })
 
     readonly property var layout: ({
-        type: "ring",              // "ring" or "spiral"
-        shape: "circle",           // "rect" or "circle"
+        // ring - nodes on one/two rings around a hub, joined by spokes
+        // hex  - honeycomb tiles growing ring by ring around a hub tile
+        // hang - nodes dropping from the top edge on strings (spoke style)
+        // tree - a tree growing from the bottom edge; folders branch on
+        type: "ring",
         ringThreshold: 12,
-        spiralThreshold: 12,
-        gapPixels: 20,
         // Single knobs instead of hand-tuning many pixel constants:
         // ringScale multiplies the popup's overall window/ring-radius size;
-        // nodeScale multiplies the card (circle/rect) size independently of
+        // nodeScale multiplies the node circle size independently of
         // ring spacing; fontScale multiplies every text size in both the
         // radial and search views. 1.0 = the original tuned-by-hand look
         // for each. If nodeScale grows much past ringScale, cards will
         // start crowding the outer ring - bump ringScale too if so.
         ringScale: 1.2,
         nodeScale: 1.6,
-        fontScale: 1.2
+        fontScale: 1.2,
+
+        // Per-layout knobs, px unless noted.
+        hex: ({
+            tileSize: 62,          // center to corner
+            gap: 15,               // between tile edges
+            ringDelay: 40          // ms between rings growing in
+        }),
+        hang: ({
+            length: 190,           // shortest string
+            centerDrop: 150,       // extra length toward the middle
+            swing: 0.16,           // rad, sway after landing
+            bounce: 0.55           // 0-1, spring when the string catches
+        }),
+        tree: ({
+            trunk: 210,            // trunk height
+            canopy: 420,           // starting canopy size (grows to fit)
+            thickness: 3.5,        // branch weight
+            fork: 0.42,            // 0-1, how far toward its leaves a branch forks
+            foliage: true          // leaf sprigs on the finer branches
+        })
+    })
+
+    // Connectors from the center to the nodes. Each style is
+    // spokes/<Name>.qml - see spokes/SpokeStyle.qml to add one.
+    readonly property var spokes: ({
+        // radial  - straight lines (the original look)
+        // laced   - bicycle-wheel cross lacing, two spokes per node
+        // galaxy  - logarithmic spiral arms with a trailing dust lane
+        // vortex  - arms winding most of a turn into each node
+        // truss   - crane-boom lattice, two chords + zigzag web
+        // helix   - twisting DNA strands with rungs (animated, GPU shader)
+        // tesla   - flickering glowing discharge arcs (animated, GPU shader)
+        style: "laced",
+        tone: "connector",         // any Theme color property, e.g. "centerDot"
+        opacity: 0.8,
+        lineWidth: 1.5,
+        gap: 4,                    // px kept clear around the hub and nodes
+        hub: "ring"                // root center: "ring" (empty node-sized circle) or "dot"
     })
 
     readonly property var trees: ({
@@ -50,7 +89,6 @@ Singleton {
             "y": { icon: "󰗃  ", label: "Youtube",    cmd: "firefox --new-window https://youtube.com/" },
           }
         },
-        "c": { icon: "  ", label: "Chrome", cmd: "google-chrome" },
         "d": {
           label: "Design/",
           icon: "   ",
@@ -82,12 +120,11 @@ Singleton {
           children: {
             "a": { icon: "󱍵  ", label: "Aliases",   cmd: "alacritty -e nvim +'cd ~/.config/' ~/.config/aliases" },
             "b": { icon: "  ", label: "Btop",      cmd: "alacritty -e nvim +'cd ~/.config/btop/' ~/.config/btop/btop.conf" },
-            "c": { icon: "󰧑  ", label: "cl-wrap",   cmd: "alacritty -e nvim +'cd ~/.config/scripts/' ~/.config/scripts/cl-wrap.sh" },
+            "c": { icon: "󰧑  ", label: "cl-wrap",   cmd: "alacritty -e nvim +'cd ~/.config/scripts/' ~/.config/scripts/cl-wrap" },
             "e": { icon: "󰇧  ", label: "Env",       cmd: "alacritty -e nvim +'cd ~/.config/' ~/.config/env" },
             "h": { icon: "󱇙  ", label: "Hypr",      cmd: "alacritty -e nvim +'cd ~/.config/hypr/' ~/.config/hypr/" },
             "i": { icon: "󱇙  ", label: "i3wm",      cmd: "alacritty -e nvim +'cd ~/.config/i3/' ~/.config/i3/config" },
-            "j": { icon: "  ", label: "QKeytree",  cmd: "alacritty -e nvim +'cd ~/.config/quickshell/modules/keytree/' ~/.config/quickshell/modules/keytree/KeytreeConfig.qml" },
-            "k": { icon: "  ", label: "Keytree",   cmd: "alacritty -e nvim +'cd ~/.config/keytree/' ~/.config/keytree/config.toml" },
+            "k": { icon: "  ", label: "Keytree",   cmd: "alacritty -e nvim +'cd ~/.config/quickshell/modules/keytree/' ~/.config/quickshell/modules/keytree/KeytreeConfig.qml", shift_cmd: "alacritty -e nvim +'cd ~/.config/keytree/' ~/.config/keytree/config.toml" },
             "l": { icon: "🅰  ", label: "Alacritty", cmd: "alacritty -e nvim +'cd ~/.config/alacritty/' ~/.config/alacritty/alacritty.toml" },
             "m": { icon: "󰣆  ", label: "Mimes",     cmd: "alacritty -e nvim +'cd ~/.config/' ~/.config/mimeapps.list" },
             "n": { icon: "  ", label: "Nvim",      cmd: "alacritty -e nvim +'cd ~/.config/nvim/lua/' ~/.config/nvim/lua/" },
@@ -122,7 +159,7 @@ Singleton {
             "c": { icon: "  ", label: "Calendar",  cmd: "google-chrome https://calendar.google.com/calendar/u/0/r" },
             "d": { icon: "  ", label: "Drive",     cmd: "google-chrome https://drive.google.com/drive/home" },
             "i": { icon: "  ", label: "Iriun",     cmd: "iriunwebcam" },
-            "j": { icon: "  ", label: "Jira",      cmd: "google-chrome https://cadenceneuro.atlassian.net/jira/software/c/projects/SWS/boards/129/backlog" },
+            "j": { icon: "  ", label: "Jira",      cmd: "google-chrome https://cadenceneuro.atlassian.net/issues?filter=11558" },
             "m": { icon: "󰇮  ", label: "Mail",      cmd: "google-chrome https://mail.google.com/mail/u/0/#inbox" },
             "o": { icon: "  ", label: "Obsidian",  cmd: "obsidian \"obsidian://open?vault=Shared-Vault\"" },
             "w": { icon: "󰧑  ", label: "Wiki",      cmd: "google-chrome https://sites.google.com/cadenceneuro.com/team/home?pli=1" },
@@ -131,13 +168,13 @@ Singleton {
         "k": { icon: "  ", label: "Bible",    cmd: "alacritty -e nvim ~/dox/bible_kjv.txt" },
         "l": { icon: "  ", label: "Download", cmd: "xdg-open \"$HOME/dl/$(ls -t $HOME/dl | head -n 1)\"" },
         "m": { icon: "󰄛  ", label: "CaH",      cmd: "mupdf -r 180 ~/dox/books/The\\ Complete\\ Calvin\\ \\&\\ Hobbes.pdf $((1 + RANDOM % 1350))" },
-        "o": { icon: "  ", label: "Obsidian", cmd: "obsidian \"obsidian://open?vault=vault\"" },
+        "o": { icon: "  ", label: "Obsidian", cmd: "obsidian \"obsidian://open?vault=vault\"" , shift_cmd: "obsidian \"obsidian://open?vault=Shared-Vault\"" },
         "p": { icon: "  ", label: "Python",   cmd: "alacritty -e python3.14" },
         "s": {
           label: "Social/",
           icon: "  ",
           children: {
-            "d": { icon: "  ", label: "Discord", cmd: "vesktop" },
+            "d": { icon: "  ", label: "Discord", cmd: "vesktop", shift_cmd: "discord" },
             "g": { icon: "󰘊  ", label: "Signal",  cmd: "signal-desktop" },
             "n": { icon: "󰿌  ", label: "Session", cmd: "session-desktop" },
             "p": { icon: "  ", label: "Phone",   cmd: "firefox --new-window https://messages.google.com/web/conversations" },
@@ -148,13 +185,13 @@ Singleton {
           label: "Services/",
           icon: "  ",
           children: {
-            "o": { label: "O-Scope",   cmd: "firefox http://10.11.13.220",          icon: "󱑽  " },
-            "b": { label: "Backrest",  cmd: "firefox http://localhost:9898/",       icon: "󰁯  " },
-            "i": { label: "Immich",    cmd: "firefox https://immich.elovold.xyz",   icon: "  " },
-            "j": { label: "Jellyfin",  cmd: "firefox https://jellyfin.elovold.xyz", icon: "󰿎  " },
-            "p": { label: "Portainer", cmd: "firefox https://edel:9443/",           icon: "󰡨  " },
-            "s": { label: "Stirling",  cmd: "firefox http://edel:8080/",            icon: "  " },
-            "t": { label: "TailScale", cmd: "firefox https://login.tailscale.com/", icon: "󰖂  " },
+            "o": { icon: "󱑽  ", label: "O-Scope",   cmd: "firefox http://10.11.13.220" },
+            "b": { icon: "󰁯  ", label: "Backrest",  cmd: "firefox http://localhost:9898/" },
+            "i": { icon: "  ", label: "Immich",    cmd: "firefox https://immich.elovold.xyz" },
+            "j": { icon: "󰿎  ", label: "Jellyfin",  cmd: "firefox https://jellyfin.elovold.xyz" },
+            "p": { icon: "󰡨  ", label: "Portainer", cmd: "firefox https://edel:9443/" },
+            "s": { icon: "  ", label: "Stirling",  cmd: "firefox http://edel:8080/" },
+            "t": { icon: "󰖂  ", label: "TailScale", cmd: "firefox https://login.tailscale.com/" },
           }
         },
         "w": { icon: "󰸉  ", label: "Wallpaper", cmd: "qs ipc call imagepicker toggle" },
@@ -223,6 +260,7 @@ Singleton {
             "a": { icon: "󱝁  ", label: "Starfield ▶",  cmd: "hypr-shader starfield" },
             "k": { icon: "󰸰  ", label: "Fireworks ▶",  cmd: "hypr-shader fireworks" },
             "p": { icon: "󰻝  ", label: "Sparks ▶",     cmd: "hypr-shader sparks-from-fire" },
+            "f": { icon: "󰈸  ", label: "Sparks + Heat ▶", cmd: "hypr-shader sparks-heat" },
             "x": { icon: "󰘨  ", label: "Matrix ▶",     cmd: "hypr-shader matrix-hallway" },
           }
         },

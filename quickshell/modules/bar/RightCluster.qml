@@ -42,8 +42,6 @@ Row {
         active: root.full
         sourceComponent: Pill {
             Syncthing {}
-            Separator {}
-            VaultSync {}
         }
     }
 
