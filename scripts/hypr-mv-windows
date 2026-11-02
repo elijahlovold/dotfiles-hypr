@@ -1,0 +1,19 @@
+#!/bin/sh
+# Move every window on the active workspace to workspace $1, without
+# following them. For the Super+P keytree's Migrate/ menu.
+#
+#   hypr-mv-windows N
+#
+# This Hyprland uses the Lua config provider, so the legacy dispatchers
+# (`hyprctl dispatch movetoworkspacesilent ...`) don't exist; the move goes
+# through `hyprctl eval` calling hl.dsp.window.move instead.
+
+[ -n "$1" ] || { echo "usage: hypr-mv-windows N" >&2; exit 1; }
+
+ws=$(hyprctl activeworkspace -j | jq -r .id) || exit 1
+[ "$ws" = "$1" ] && exit 0
+
+hyprctl clients -j | jq -r --argjson ws "$ws" '.[] | select(.workspace.id == $ws and .mapped) | .address' |
+    while read -r addr; do
+        hyprctl eval "hl.dispatch(hl.dsp.window.move({ workspace = $1, follow = false, window = 'address:$addr' }))"
+    done

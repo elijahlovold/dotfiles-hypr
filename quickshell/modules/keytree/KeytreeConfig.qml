@@ -179,6 +179,23 @@ Singleton {
         "b": { icon: "  ", label: "Bambu", cmd: "qs ipc call barpopup open bambu" },
         "y": { icon: "󱇯  ", label: "Stator", cmd: "qs ipc call barpopup open stator" },
         "h": { icon: "  ", label: "System monitor", cmd: "qs ipc call barpopup open sysmon" },
+        // Move every window on the current workspace to the picked one.
+        "i": {
+          label: "mv-win/",
+          icon: "󰍹  ",
+          children: {
+            "1": { icon: "󰍹  ", label: "Workspace 1",  cmd: "hypr-mv-windows 1" },
+            "2": { icon: "󰍹  ", label: "Workspace 2",  cmd: "hypr-mv-windows 2" },
+            "3": { icon: "󰍹  ", label: "Workspace 3",  cmd: "hypr-mv-windows 3" },
+            "4": { icon: "󰍹  ", label: "Workspace 4",  cmd: "hypr-mv-windows 4" },
+            "5": { icon: "󰍹  ", label: "Workspace 5",  cmd: "hypr-mv-windows 5" },
+            "6": { icon: "󰍹  ", label: "Workspace 6",  cmd: "hypr-mv-windows 6" },
+            "7": { icon: "󰍹  ", label: "Workspace 7",  cmd: "hypr-mv-windows 7" },
+            "8": { icon: "󰍹  ", label: "Workspace 8",  cmd: "hypr-mv-windows 8" },
+            "9": { icon: "󰍹  ", label: "Workspace 9",  cmd: "hypr-mv-windows 9" },
+            "0": { icon: "󰍹  ", label: "Workspace 10", cmd: "hypr-mv-windows 10" },
+          }
+        },
         // Blank all monitors until the next input (modules/screens).
         "o": { icon: "󰶐  ", label: "Screens off", cmd: "qs ipc call screens off" },
         // Hyprland screen shaders (scripts/hypr-shader, hypr/shaders/).
