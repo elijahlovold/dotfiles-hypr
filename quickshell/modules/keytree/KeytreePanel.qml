@@ -300,37 +300,80 @@ OverlaySurface {
     readonly property bool fullscreenView: root.view?.fullscreen ?? false
     readonly property real winSize: Math.round(root.view?.preferredSize ?? 540)
 
-    // ── Search mode (mirrors KeyTreeModel's PATH-scan search) ─────────────────
+    // ── Search mode ───────────────────────────────────────────────────────────
+    // "apps": desktop entries, shown with their icons ("/").
+    // "bins": raw executables on PATH, scanned once on demand (mirrors
+    // KeyTreeModel's PATH-scan search) ("?").
+    // Results are { label, icon, entry } (apps) or { label, cmd } (bins).
     readonly property int maxSearchResults: 10
 
     property bool searchMode: false
+    property string searchKind: "apps"
     property string searchText: ""
     property int searchSelection: 0
     property var searchResults: []
     property var allBins: []
     property bool binsReady: false
 
+    // Prefix matches first, then substring matches; `text(item)` is what
+    // the query is matched against.
+    function rank(items, query, text) {
+        if (query.length === 0)
+            return items;
+        const prefix = [];
+        const substr = [];
+        for (const it of items) {
+            const t = text(it).toLowerCase();
+            if (t.startsWith(query))
+                prefix.push(it);
+            else if (t.includes(query))
+                substr.push(it);
+        }
+        return prefix.concat(substr);
+    }
+
     function updateSearchResults() {
         const query = root.searchText.toLowerCase();
         let results;
-        if (query.length === 0) {
-            results = root.allBins.slice(0, root.maxSearchResults);
+        if (root.searchKind === "apps") {
+            const apps = DesktopEntries.applications.values.filter(e => !e.noDisplay).sort((a, b) => a.name.localeCompare(b.name));
+            // Name first; failing that, the generic name ("Web Browser").
+            const byName = root.rank(apps, query, e => e.name);
+            const byGeneric = root.rank(apps.filter(e => !byName.includes(e)), query, e => e.genericName ?? "");
+            results = byName.concat(byGeneric).slice(0, root.maxSearchResults).map(e => ({
+                        label: e.name,
+                        icon: Quickshell.iconPath(e.icon, "application-x-executable"),
+                        entry: e
+                    }));
         } else {
-            const prefix = root.allBins.filter(b => b.toLowerCase().startsWith(query));
-            const substr = root.allBins.filter(b => !b.toLowerCase().startsWith(query) && b.toLowerCase().includes(query));
-            results = prefix.concat(substr).slice(0, root.maxSearchResults);
+            results = root.rank(root.allBins, query, b => b).slice(0, root.maxSearchResults).map(b => ({
+                        label: b,
+                        cmd: b
+                    }));
         }
         root.searchResults = results;
         root.searchSelection = 0;
     }
 
-    function enterSearch() {
+    // The entry list loads asynchronously on first use; refresh once it lands.
+    Connections {
+        target: DesktopEntries.applications
+        function onValuesChanged() {
+            if (root.searchMode && root.searchKind === "apps")
+                root.updateSearchResults();
+        }
+    }
+
+    function enterSearch(kind) {
+        root.searchKind = kind;
         root.searchMode = true;
         root.searchText = "";
-        if (root.binsReady)
-            root.updateSearchResults();
-        else
+        if (kind === "bins" && !root.binsReady) {
             root.searchResults = [];
+            pathScanProc.running = true;
+        } else {
+            root.updateSearchResults();
+        }
     }
 
     function exitSearch() {
@@ -363,17 +406,24 @@ OverlaySurface {
 
     function confirmSearch() {
         if (root.searchSelection < root.searchResults.length) {
-            root.launch(root.searchResults[root.searchSelection]);
+            const r = root.searchResults[root.searchSelection];
+            if (r.entry) {
+                root.launched = true;
+                if (r.entry.runInTerminal)
+                    Quickshell.execDetached(["alacritty", "-e", ...r.entry.command]);
+                else
+                    r.entry.execute();
+            } else {
+                root.launch(r.cmd);
+            }
             root.requestClose();
         }
     }
 
-    // Scan PATH once, in the background, starting the moment the window
-    // opens - same "hide it behind startup time" idea as the original's
-    // std::async scan kicked off from the KeyTreeModel constructor.
+    // Scan PATH once, in the background, the first time "?" search is
+    // entered (the default "/" search doesn't need it).
     Process {
         id: pathScanProc
-        running: true
         command: ["bash", "-c", 'IFS=: read -ra dirs <<< "$PATH"; for d in "${dirs[@]}"; do [ -d "$d" ] || continue; find "$d" -maxdepth 1 -not -type d -perm /111 -printf "%f\\n" 2>/dev/null; done | grep -v "^\\." | sort -u']
         stdout: StdioCollector {
             id: pathScanCollector
@@ -513,7 +563,12 @@ OverlaySurface {
                 return;
             }
             if (contentItem.keyMatches(event, kb.search)) {
-                root.enterSearch();
+                root.enterSearch("apps");
+                event.accepted = true;
+                return;
+            }
+            if (contentItem.keyMatches(event, kb.searchBins)) {
+                root.enterSearch("bins");
                 event.accepted = true;
                 return;
             }
@@ -551,6 +606,7 @@ OverlaySurface {
             fontScale: root.fontScale
             searchText: root.searchText
             searchResults: root.searchResults
+            prompt: root.searchKind === "apps" ? "/" : "?"
             searchSelection: root.searchSelection
             visible: root.searchMode
         }

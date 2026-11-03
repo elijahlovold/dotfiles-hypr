@@ -12,7 +12,9 @@ Singleton {
     readonly property var keybindings: ({
         back: "Escape",
         quit: "q",
-        search: "/"
+        // "/" searches desktop entries (with icons); "?" the raw binaries on PATH.
+        search: "/",
+        searchBins: "?"
     })
 
     readonly property var layout: ({

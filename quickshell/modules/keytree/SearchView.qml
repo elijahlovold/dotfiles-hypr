@@ -13,6 +13,7 @@ Item {
     property real fontScale: 1.0
     property string searchText: ""
     property var searchResults: []
+    property string prompt: "/"
     property int searchSelection: 0
 
     readonly property real inputH:  44
@@ -50,7 +51,7 @@ Item {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "/"
+                    text: root.prompt
                     color: root.cKeyText
                     font.pixelSize: Math.round(22 * root.fontScale)
                     font.bold: true
@@ -98,7 +99,7 @@ Item {
 
                 delegate: Rectangle {
                     id: resultDelegate
-                    required property string modelData
+                    required property var modelData
                     required property int    index
 
                     width:  panel.width - 24
@@ -108,11 +109,25 @@ Item {
                         ? root.cSelection
                         : "transparent"
 
-                    Text {
+                    // Desktop-entry results carry a resolved icon path.
+                    Image {
+                        id: appIcon
+                        visible: !!resultDelegate.modelData.icon
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.left: parent.left
                         anchors.leftMargin: 8
-                        text: resultDelegate.modelData
+                        width: 24
+                        height: 24
+                        sourceSize: Qt.size(48, 48)
+                        asynchronous: true
+                        source: resultDelegate.modelData.icon ?? ""
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.leftMargin: appIcon.visible ? 44 : 8
+                        text: resultDelegate.modelData.label
                         color: resultDelegate.index === root.searchSelection ? "white" : root.cText
                         font.pixelSize: Math.round(15 * root.fontScale)
                         font.family: "monospace"
