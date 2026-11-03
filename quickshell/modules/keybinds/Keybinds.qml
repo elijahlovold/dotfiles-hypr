@@ -1,11 +1,13 @@
+pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Entry point: instantiate once from shell.qml. Toggled via IPC, same
+// Singleton: callable directly from the shell (keytree actions). shell.qml
+// touches it at startup so the IpcHandler below registers. Toggled via IPC, same
 // pattern as Keytree/ImagePicker.
 //   qs ipc call keybinds toggle
-Scope {
+Singleton {
     id: root
 
     property bool open: false

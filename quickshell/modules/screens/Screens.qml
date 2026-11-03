@@ -1,9 +1,11 @@
+pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 
-// Entry point: instantiate once from shell.qml. Blank every monitor (DPMS
+// Singleton: callable directly from the shell (keytree actions). shell.qml
+// touches it at startup so the IpcHandler below registers. Blank every monitor (DPMS
 // off, no lock) until the next input.
 //   qs ipc call screens off
 //
@@ -15,7 +17,7 @@ import Quickshell.Wayland
 //
 // The config uses Hyprland's Lua provider, so `hyprctl dispatch` takes a
 // Lua dispatcher expression, not the legacy `dpms off` syntax.
-Scope {
+Singleton {
     id: root
 
     property bool armed: false

@@ -6,6 +6,10 @@ import qs.modules.theme
 import qs.modules.overlay
 import qs.modules.bolt
 import qs.modules.common
+import qs.modules.gif
+import qs.modules.imagepicker
+import qs.modules.keybinds
+import qs.modules.screens
 
 // QML/quickshell port of keytree's C++ KeyTreeModel + Main.qml. A modal
 // OverlaySurface covering the focused screen (modules/overlay): while it's
@@ -81,6 +85,16 @@ OverlaySurface {
     // can land without `closing`): an app that maps while the menu still
     // holds focus would otherwise open unfocused.
     property bool launched: false
+
+    // In-process shell actions a node can name with `action:` instead of
+    // spawning `qs ipc call ...`. Each is a call on that module's
+    // singleton (its IpcHandler stays for external callers).
+    readonly property var actions: ({
+            "gif.toggle": () => Gif.toggle(),
+            "imagepicker.toggle": () => ImagePicker.toggle(),
+            "keybinds.toggle": () => Keybinds.toggle(),
+            "screens.off": () => Screens.off()
+        })
 
     function launch(cmd) {
         root.launched = true;
@@ -160,13 +174,16 @@ OverlaySurface {
                 icon: (node.icon ?? "").slice(0, 5),
                 isLeaf: !node.children,
                 cmd: node.cmd ?? "",
-                shiftCmd: node.shift_cmd ?? ""
+                shiftCmd: node.shift_cmd ?? "",
+                popup: node.popup ?? "",
+                action: node.action ?? ""
             });
         }
         return list;
     }
 
-    // `shift`: run the node's optional `shift_cmd` instead of `cmd`.
+    // `shift`: run the node's optional `shift_cmd` instead of `cmd`; for a
+    // `popup` node it docks the popup on the bar instead of floating it.
     function pressKey(key, shift) {
         if (!key)
             return;
@@ -182,9 +199,9 @@ OverlaySurface {
             root.current = node;
             const struck = picked && root.menuBolt("enter", root.menuPoint(root.view.center), picked);
             root.backBolts = [...root.backBolts, struck ? menuBoltItem.geometry(true) : null];
-        } else if (node.cmd || node.shift_cmd) {
+        } else if (node.cmd || node.shift_cmd || node.popup || node.action) {
             const cmd = (shift && node.shift_cmd) || node.cmd;
-            if (!cmd)
+            if (!cmd && !node.popup && !node.action)
                 return;
             // The picked node becomes the origin of the next bolt (bar
             // popup / app window opening) - see modules/bolt/Bolts.qml.
@@ -193,10 +210,18 @@ OverlaySurface {
                 Bolts.setOrigin(Qt.point(p.x + root.screen.x, p.y + root.screen.y));
             // Bar popups are summoned in-process rather than round-tripping
             // through `qs ipc`, so the bolt leaves the node immediately.
-            const popup = cmd.match(/^qs ipc call barpopup (open|float) (\S+)$/);
-            if (popup)
-                BarPopups.summon(popup[2], popup[1] === "float");
-            else
+            if (node.popup) {
+                BarPopups.summon(node.popup, !shift);
+            } else if (node.action) {
+                // Same early focus hand-off as launch(): these open or
+                // blank things that must not map under a menu holding focus.
+                root.launched = true;
+                const run = root.actions[node.action];
+                if (run)
+                    run();
+                else
+                    Quickshell.execDetached(["notify-send", "-a", "Keytree", "-u", "critical", "-t", "5000", "Unknown action", node.action]);
+            } else
                 root.launch(cmd);
             root.requestClose();
         }

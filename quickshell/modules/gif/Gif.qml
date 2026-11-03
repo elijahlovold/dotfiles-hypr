@@ -1,15 +1,17 @@
+pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Entry point: instantiate once from shell.qml. Trim a screen recording
+// Singleton: callable directly from the shell (keytree actions). shell.qml
+// touches it at startup so the IpcHandler below registers. Trim a screen recording
 // (scripts/hypr-screenrec's newest, by default) and export it as a GIF.
 //   qs ipc call gif toggle
 //   qs ipc call gif open <video>      start on a specific file
 //
 // The ffmpeg export lives here rather than in GifPanel so closing the
 // window mid-export doesn't kill it; the window only shows its progress.
-Scope {
+Singleton {
     id: root
 
     property bool open: false

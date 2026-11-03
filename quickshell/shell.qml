@@ -15,6 +15,9 @@ import qs.modules.gif
 import qs.modules.screens
 
 ShellRoot {
+    // Singletons are created on first use; touch the ones that own an
+    // IpcHandler so `qs ipc call` works before anything else references them.
+    Component.onCompleted: [Gif, ImagePicker, Keybinds, Screens]
     Connections {
         target: Quickshell
 
@@ -33,14 +36,10 @@ ShellRoot {
     OverlayHost {}
     Bar {}
     Keytree {}
-    ImagePicker {}
-    Keybinds {}
     Desktop {}
     ThemeSwitcher {}
     Reticle {}
     Draw {}
     Notifications {}
     Clipboard {}
-    Gif {}
-    Screens {}
 }

@@ -202,23 +202,26 @@ Singleton {
 
       // Super+P - open a bar popup from the keyboard (lightning-strike
       // reveal, see modules/common/BarPopups.qml + modules/bolt).
+      // `popup: "<name>"` summons it in-process: floating, or docked on the
+      // bar with Shift held.
       "popups": {
-        "b": { icon: "  ", label: "Bambu",          cmd: "qs ipc call barpopup float bambu", shift_cmd: "qs ipc call barpopup open bambu" },
-        "c": { icon: "  ", label: "Calendar",       cmd: "qs ipc call barpopup float calendar", shift_cmd: "qs ipc call barpopup open calendar" },
-        "d": { icon: "  ", label: "Drives",         cmd: "qs ipc call barpopup float drives", shift_cmd: "qs ipc call barpopup open drives" },
-        "e": { icon: "  ", label: "Serial",         cmd: "qs ipc call barpopup float serial", shift_cmd: "qs ipc call barpopup open serial" },
-        "h": { icon: "  ", label: "System monitor", cmd: "qs ipc call barpopup float sysmon", shift_cmd: "qs ipc call barpopup open sysmon" },
-        "i": { icon: "  ", label: "Wi-Fi",          cmd: "qs ipc call barpopup float wifi", shift_cmd: "qs ipc call barpopup open wifi" },
-        "m": { icon: "  ", label: "Music",          cmd: "qs ipc call barpopup float music", shift_cmd: "qs ipc call barpopup open music" },
-        "n": { icon: "  ", label: "Notifications",  cmd: "qs ipc call barpopup float notifications", shift_cmd: "qs ipc call barpopup open notifications" },
-        "p": { icon: "  ", label: "Color picker",   cmd: "qs ipc call barpopup float colorpicker", shift_cmd: "qs ipc call barpopup open colorpicker" },
-        "r": { icon: "  ", label: "Record",         cmd: "qs ipc call barpopup float screenrec", shift_cmd: "qs ipc call barpopup open screenrec" },
-        "s": { icon: "  ", label: "Sound",          cmd: "qs ipc call barpopup float sound", shift_cmd: "qs ipc call barpopup open sound" },
-        "t": { icon: "  ", label: "Theme",          cmd: "qs ipc call barpopup float theme", shift_cmd: "qs ipc call barpopup open theme" },
-        "u": { icon: "  ", label: "Unit tools",     cmd: "qs ipc call barpopup float unittools", shift_cmd: "qs ipc call barpopup open unittools" },
-        "y": { icon: "󱇯  ", label: "Stator"        , cmd: "qs ipc call barpopup float stator", shift_cmd: "qs ipc call barpopup open stator" },
-        "g": { icon: "󰵸  ", label: "GIF maker"     , cmd: "qs ipc call gif toggle" },
-        "w": { icon: "󰸉  ", label: "Wallpaper"     , cmd: "qs ipc call imagepicker toggle" },
+        "b": { icon: "  ", label: "Bambu",          popup: "bambu" },
+        "c": { icon: "  ", label: "Calendar",       popup: "calendar" },
+        "d": { icon: "  ", label: "Drives",         popup: "drives" },
+        "e": { icon: "  ", label: "Serial",         popup: "serial" },
+        "h": { icon: "  ", label: "System monitor", popup: "sysmon" },
+        "i": { icon: "  ", label: "Wi-Fi",          popup: "wifi" },
+        "m": { icon: "  ", label: "Music",          popup: "music" },
+        "n": { icon: "  ", label: "Notifications",  popup: "notifications" },
+        "p": { icon: "  ", label: "Color picker",   popup: "colorpicker" },
+        "r": { icon: "  ", label: "Record",         popup: "screenrec" },
+        "s": { icon: "  ", label: "Sound",          popup: "sound" },
+        "t": { icon: "  ", label: "Theme",          popup: "theme" },
+        "u": { icon: "  ", label: "Unit tools",     popup: "unittools" },
+        "y": { icon: "󱇯  ", label: "Stator",         popup: "stator" },
+        "k": { icon: "󰌌  ", label: "Keymap",         action: "keybinds.toggle" },
+        "g": { icon: "󰵸  ", label: "GIF maker",      action: "gif.toggle" },
+        "w": { icon: "󰸉  ", label: "Wallpaper",      action: "imagepicker.toggle" },
         // Move every window on the current workspace to the picked one.
         "v": {
           label: "mv-win/",
@@ -237,7 +240,7 @@ Singleton {
           }
         },
         // Blank all monitors until the next input (modules/screens).
-        "o": { icon: "󰶐  ", label: "Screens off", cmd: "qs ipc call screens off" },
+        "o": { icon: "󰶐  ", label: "Screens off", action: "screens.off" },
         // Hyprland screen shaders (scripts/hypr-shader, hypr/shaders/).
         // Picking the active one again turns it off; ▶ = animated, which
         // redraws the whole monitor every frame while it's on.
