@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Pipewire
 import qs.modules.theme
 import qs.modules.overlay
@@ -24,6 +25,58 @@ PillPopup {
 
     PwObjectTracker {
         objects: [popup.sink, popup.source]
+    }
+
+    // Output ports (e.g. rear line out vs front headphone jack on one
+    // card) by sink node name: { active, ports: [{ name, description,
+    // available }] }. Quickshell's Pipewire service doesn't expose
+    // routes, so this comes from pactl - fetched on open and whenever
+    // pactl reports a sink/card change (port switch, jack plugged) while
+    // the popup is up.
+    property var sinkPorts: ({})
+
+    Process {
+        id: portsProc
+        running: true
+        command: ["pactl", "-f", "json", "list", "sinks"]
+        stdout: StdioCollector {
+            id: portsOut
+            onStreamFinished: {
+                try {
+                    const map = {};
+                    for (const s of JSON.parse(portsOut.text))
+                        map[s.name] = {
+                            active: s.active_port,
+                            ports: (s.ports ?? []).map(p => ({
+                                        name: p.name,
+                                        description: p.description,
+                                        available: p.availability !== "not available"
+                                    }))
+                        };
+                    popup.sinkPorts = map;
+                } catch (e) {
+                    popup.sinkPorts = {};
+                }
+            }
+        }
+    }
+
+    Process {
+        running: true
+        command: ["pactl", "subscribe"]
+        stdout: SplitParser {
+            onRead: line => {
+                if (/ on (sink|card) #/.test(line))
+                    portsRefresh.restart();
+            }
+        }
+    }
+
+    // Volume drags fire a stream of sink change events - coalesce them.
+    Timer {
+        id: portsRefresh
+        interval: 150
+        onTriggered: portsProc.running = true
     }
 
     // Live signal for one node via PwNodePeakMonitor - for a sink that's
@@ -208,6 +261,8 @@ PillPopup {
         required property PwNode current
         required property var nodes
         required property bool isSink
+        // node name -> port info, see popup.sinkPorts
+        property var portInfo: ({})
         readonly property real volume: section.current?.audio?.volume ?? 0
         readonly property bool muted: section.current?.audio?.muted ?? false
 
@@ -304,50 +359,105 @@ PillPopup {
 
         Repeater {
             model: section.nodes
-            delegate: Rectangle {
+            delegate: Column {
                 id: deviceRow
                 required property PwNode modelData
                 readonly property bool isDefault: deviceRow.modelData === section.current
+                readonly property var info: section.portInfo[deviceRow.modelData.name]
+                // Only worth listing when there's an actual choice.
+                readonly property var ports: (deviceRow.info?.ports.length ?? 0) > 1 ? deviceRow.info.ports : []
 
                 width: section.width
-                height: 24
-                radius: 4
-                color: deviceMa.containsMouse ? Theme.hoverBg : "transparent"
 
-                Row {
-                    anchors.left: parent.left
-                    anchors.leftMargin: 6
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 8
+                Rectangle {
+                    width: section.width
+                    height: 24
+                    radius: 4
+                    color: deviceMa.containsMouse ? Theme.hoverBg : "transparent"
 
-                    Text {
-                        id: radio
-                        text: String.fromCharCode(deviceRow.isDefault ? 0xf192 : 0xf10c) // fa-dot-circle-o / fa-circle-o
-                        color: deviceRow.isDefault ? Theme.accent : Theme.dimText
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSize - 3
+                    Row {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 6
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 8
+
+                        Text {
+                            id: radio
+                            text: String.fromCharCode(deviceRow.isDefault ? 0xf192 : 0xf10c) // fa-dot-circle-o / fa-circle-o
+                            color: deviceRow.isDefault ? Theme.accent : Theme.dimText
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSize - 3
+                        }
+                        Text {
+                            width: parent.width - radio.width - 8
+                            text: deviceRow.modelData.description || deviceRow.modelData.nickname || deviceRow.modelData.name
+                            color: deviceRow.isDefault ? Theme.text : Theme.dimText
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.fontSize - 3
+                            elide: Text.ElideRight
+                        }
                     }
-                    Text {
-                        width: parent.width - radio.width - 8
-                        text: deviceRow.modelData.description || deviceRow.modelData.nickname || deviceRow.modelData.name
-                        color: deviceRow.isDefault ? Theme.text : Theme.dimText
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSize - 3
-                        elide: Text.ElideRight
+
+                    MouseArea {
+                        id: deviceMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (section.isSink)
+                                Pipewire.preferredDefaultAudioSink = deviceRow.modelData;
+                            else
+                                Pipewire.preferredDefaultAudioSource = deviceRow.modelData;
+                        }
                     }
                 }
 
-                MouseArea {
-                    id: deviceMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (section.isSink)
-                            Pipewire.preferredDefaultAudioSink = deviceRow.modelData;
-                        else
-                            Pipewire.preferredDefaultAudioSource = deviceRow.modelData;
+                // Port sub-rows, indented under their device.
+                Repeater {
+                    model: deviceRow.ports
+                    delegate: Rectangle {
+                        id: portRow
+                        required property var modelData
+                        readonly property bool isActive: portRow.modelData.name === deviceRow.info.active
+
+                        width: section.width
+                        height: 20
+                        radius: 4
+                        color: portMa.containsMouse ? Theme.hoverBg : "transparent"
+
+                        Row {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 28
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 8
+
+                            Text {
+                                id: portRadio
+                                text: String.fromCharCode(portRow.isActive ? 0xf192 : 0xf10c) // fa-dot-circle-o / fa-circle-o
+                                color: portRow.isActive ? Theme.accent : Theme.dimText
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSize - 5
+                            }
+                            Text {
+                                width: parent.width - portRadio.width - 8
+                                text: portRow.modelData.description + (portRow.modelData.available ? "" : "  (unplugged)")
+                                color: portRow.isActive ? Theme.text : Theme.dimText
+                                opacity: portRow.modelData.available ? 1 : 0.6
+                                font.family: Theme.fontFamily
+                                font.pixelSize: Theme.fontSize - 4
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        MouseArea {
+                            id: portMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Quickshell.execDetached(["pactl", section.isSink ? "set-sink-port" : "set-source-port", deviceRow.modelData.name, portRow.modelData.name])
+                        }
                     }
                 }
             }
@@ -370,6 +480,7 @@ PillPopup {
                 current: popup.sink
                 nodes: popup.sinks
                 isSink: true
+                portInfo: popup.sinkPorts
             }
 
             DeviceSection {
