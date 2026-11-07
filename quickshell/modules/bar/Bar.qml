@@ -123,6 +123,11 @@ Scope {
                 }
             }
 
+            // Widgets kept off the bar but still openable from the keytree.
+            // On every bar, so their popups open on whichever monitor has
+            // focus (BarPopups.summon picks the focused screen's instance).
+            OffBarWidgets {}
+
             // Mask for rightArea: transparent at its left edge, opaque
             // fadeWidth px in.
             Rectangle {

@@ -220,14 +220,9 @@ Singleton {
         "l": { icon: "󰒋  ", label: "Homelab",        popup: "homelab" },
         "m": { icon: "  ", label: "Music",          popup: "music" },
         "n": { icon: "  ", label: "Notifications",  popup: "notifications" },
-        "p": { icon: "  ", label: "Color picker",   popup: "colorpicker" },
-        "r": { icon: "  ", label: "Record",         popup: "screenrec" },
         "s": { icon: "  ", label: "Sound",          popup: "sound" },
         "t": { icon: "  ", label: "Theme",          popup: "theme" },
-        "u": { icon: "  ", label: "Unit tools",     popup: "unittools" },
         "y": { icon: "󱇯  ", label: "Stator",         popup: "stator" },
-        "k": { icon: "󰌌  ", label: "Keymap",         action: "keybinds.toggle" },
-        "g": { icon: "󰵸  ", label: "GIF maker",      action: "gif.toggle" },
         "w": { icon: "󰸉  ", label: "Wallpaper",      action: "imagepicker.toggle" },
         // Move every window on the current workspace to the picked one.
         "v": {
@@ -293,6 +288,25 @@ Singleton {
             "r": { icon: "  ", label: "Random",   cmd: "qs -p ~/.config/dotfiles-hypr/quickshell-wall ipc call wallpaper effect random" },
           }
         },
+      },
+
+      // -~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
+
+      // Super+U - small tools. Most have no bar widget (bar/OffBarWidgets),
+      // so this is how they're reached; their popups open floating.
+      // `after_close: true` holds a cmd until the menu has finished closing,
+      // for ones that capture the screen.
+      "utils": {
+        "c": { icon: "  ", label: "Color picker",   cmd: "hyprpicker -a", after_close: true },
+        "g": { icon: "󰵸  ", label: "GIF maker",      action: "gif.toggle" },
+        "k": { icon: "󰌌  ", label: "Keymap",         action: "keybinds.toggle" },
+        "r": { icon: "  ", label: "Record",         popup: "screenrec" },
+        "t": { icon: "  ", label: "Timers",         popup: "timers" },
+        "u": { icon: "  ", label: "Unit tools",     popup: "unittools" },
+        "e": { icon: "  ", label: "EE calc",        popup: "eecalc" },
+        "o": { icon: "󰗾  ", label: "OCR",            cmd: "hypr-ocr", after_close: true },
+        "x": { icon: "󰄻  ", label: "Reticle",        action: "reticle.toggle" },
+        "v": { icon: "󰄻  ", label: "Reticle edit",   action: "reticle.edit" },
       },
 
       // -~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~

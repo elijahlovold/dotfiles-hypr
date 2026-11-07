@@ -4,11 +4,12 @@ import Quickshell
 import qs.modules.theme
 import qs.modules.overlay
 
-// Two independent pure-QML/JS tools in one popup, opened from
-// UnitTools.qml: a live bidirectional unit converter (length/weight/temp -
-// the pairs that come up most doing embedded/3D-print/PCB work) and a
-// timestamp reader (paste an epoch or date string, read it back both
-// ways). No process/service involved - everything below is local JS math.
+// Small pure-QML/JS converters in one tabbed popup, opened from
+// UnitTools.qml: live bidirectional unit pairs (length/weight/temp - the
+// ones that come up most doing embedded/3D-print/PCB work), "Base"
+// (BaseConverter: hex/dec/bin and register bits) and "Time", a timestamp
+// reader (paste an epoch or date string, read it back both ways). No
+// process/service involved - everything below is local JS math.
 PillPopup {
     id: popup
 
@@ -32,9 +33,13 @@ PillPopup {
     readonly property var categories: [
         { name: "Length", unitA: "mm", unitB: "in", aToB: v => v / 25.4, bToA: v => v * 25.4 },
         { name: "Weight", unitA: "g", unitB: "oz", aToB: v => v / 28.3495, bToA: v => v * 28.3495 },
-        { name: "Temp", unitA: "°C", unitB: "°F", aToB: v => v * 9 / 5 + 32, bToA: v => (v - 32) * 5 / 9 }
+        { name: "Temp", unitA: "°C", unitB: "°F", aToB: v => v * 9 / 5 + 32, bToA: v => (v - 32) * 5 / 9 },
+        // Not unit pairs: these swap the A/B rows for their own section.
+        { name: "Base", base: true },
+        { name: "Time", time: true }
     ]
     readonly property var category: popup.categories[popup.categoryIndex]
+    readonly property bool unitTab: !popup.category.base && !popup.category.time
     property bool convGuard: false
 
     function round3(v) {
@@ -75,17 +80,18 @@ PillPopup {
     property double nowTick: Date.now()
     Timer {
         interval: 1000
-        running: true
+        running: popup.category.time === true
         repeat: true
         onTriggered: popup.nowTick = Date.now()
     }
 
-    // Keyboard: j/k move between the three fields (wrapping); everything
-    // else types into the field. Escape isn't taken here, so it bubbles up
+    // Keyboard: j/k move between the tab's fields (wrapping); everything
+    // else types into the field. The Time tab's one field takes j/k as
+    // text ("jun 5"). Escape isn't taken here, so it bubbles up
     // to PillPopup and closes. Once the popup takes keyboard focus (Super+P
     // or a click), the first field gets it unless a click already picked one
     // - deferred so that click's own focus change lands first.
-    readonly property var fields: [fieldA, fieldB, tsField]
+    readonly property var fields: popup.category.base ? baseConverter.fields : popup.category.time ? [tsField] : [fieldA, fieldB]
 
     function fieldKey(event, index) {
         if (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))
@@ -99,7 +105,7 @@ PillPopup {
 
     onKeyboardActivated: Qt.callLater(() => {
         if (!popup.fields.some(f => f.focus))
-            fieldA.forceActiveFocus();
+            popup.fields[0].forceActiveFocus();
     })
 
     Item {
@@ -111,7 +117,7 @@ PillPopup {
             id: layout
             anchors.centerIn: parent
             width: parent.width - 32
-            spacing: 14
+            spacing: 6
 
             // Unit converter
             Column {
@@ -145,6 +151,7 @@ PillPopup {
                 }
 
                 Row {
+                    visible: popup.unitTab
                     width: parent.width
                     spacing: 8
 
@@ -177,7 +184,7 @@ PillPopup {
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         width: 24
-                        text: popup.category.unitA
+                        text: popup.category.unitA ?? ""
                         color: Theme.dimText
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSize - 3
@@ -185,6 +192,7 @@ PillPopup {
                 }
 
                 Row {
+                    visible: popup.unitTab
                     width: parent.width
                     spacing: 8
 
@@ -217,32 +225,25 @@ PillPopup {
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         width: 24
-                        text: popup.category.unitB
+                        text: popup.category.unitB ?? ""
                         color: Theme.dimText
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontSize - 3
                     }
                 }
-            }
 
-            Rectangle {
-                width: parent.width
-                height: 1
-                color: Theme.pillBorder
+                BaseConverter {
+                    id: baseConverter
+                    visible: popup.category.base === true
+                    fieldKey: popup.fieldKey
+                }
             }
 
             // Timestamp reader
             Column {
+                visible: popup.category.time === true
                 width: parent.width
                 spacing: 6
-
-                Text {
-                    text: "Timestamp"
-                    color: Theme.text
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize - 3
-                    font.bold: true
-                }
 
                 Rectangle {
                     width: parent.width
@@ -254,7 +255,6 @@ PillPopup {
 
                     TextInput {
                         id: tsField
-                        Keys.onPressed: event => popup.fieldKey(event, 2)
                         anchors.fill: parent
                         anchors.margins: 6
                         verticalAlignment: TextInput.AlignVCenter

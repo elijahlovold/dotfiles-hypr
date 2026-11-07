@@ -201,7 +201,7 @@ hl.bind("Print", hl.dsp.exec_cmd(
     'grim -g "$(slurp)" "$file" && wl-copy < "$file"'
 ))
 
-hl.bind(mod .. " + ALT + Print", hl.dsp.exec_cmd("hypr-ocr"))
+-- OCR (hypr-ocr) lives in the utils keytree (Super+U, o).
 hl.bind(mod .. " + CTRL + Print", hl.dsp.exec_cmd("hypr-screenrec toggle"))
 hl.bind(mod .. " + Print", hl.dsp.exec_cmd(
     'file="' .. screenshots .. '/$(date +%Y-%m-%d_%H-%M-%S).png"; ' ..
@@ -219,6 +219,7 @@ hl.bind("SUPER + SHIFT + Print", hl.dsp.exec_cmd(
 -- Quickshell keytree + utils
 hl.bind(mod .. " + D", hl.dsp.exec_cmd("qs ipc call keytree toggle default"))
 hl.bind(mod .. " + Y", hl.dsp.exec_cmd("qs ipc call keytree toggle stator"))
+hl.bind(mod .. " + U", hl.dsp.exec_cmd("qs ipc call keytree toggle utils"))
 hl.bind(mod .. " + P", hl.dsp.exec_cmd("qs ipc call keytree toggle popups"))
 hl.bind(mod .. " + V", hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
 
@@ -248,8 +249,8 @@ hl.bind(mod .. " + CTRL + SHIFT + C", hl.dsp.exec_cmd(wallpaper .. " ipc call wa
 -- Next monitor profile (dual / solo) - see monitors.lua
 hl.bind(mod .. " + SHIFT + M", monitors.next_profile)
 
-hl.bind(mod .. " + U", bolt.exec("firefox --new-window https://www.stevenspass.com/the-mountain/mountain-conditions/mountain-cams.aspx"))
-hl.bind(mod .. " + SHIFT + U", hl.dsp.exec_cmd(wallpaper .. " ipc call wallpaper stream"))
+hl.bind(mod .. " + SHIFT + U", bolt.exec("firefox --new-window https://www.stevenspass.com/the-mountain/mountain-conditions/mountain-cams.aspx"))
+-- hl.bind(mod .. " + SHIFT + U", hl.dsp.exec_cmd(wallpaper .. " ipc call wallpaper stream"))
 
 hl.bind(mod .. " + SHIFT + P", hl.dsp.exec_cmd("rofimoji"))
 hl.bind(mod .. " + CTRL + P", hl.dsp.exec_cmd("password-picker"))

@@ -1,11 +1,20 @@
 #!/bin/sh
+# Select a region, OCR it (tesseract, English) and copy the text. Needs
+# tesseract-data-eng - pacman offers afr first when tesseract pulls in its
+# data, which leaves -l eng failing.
 
 region=$(slurp) || exit 0
 [ -z "$region" ] && exit 0
 
-text=$(grim -g "$region" - | tesseract - - -l eng 2>/dev/null)
+err=$(mktemp)
+trap 'rm -f "$err"' EXIT
 
-if [ -z "$text" ]; then
+if ! text=$(grim -g "$region" - | tesseract - - -l eng 2>"$err"); then
+    notify-send -a Quickshell -u critical -t 6000 "OCR failed" "$(grep -v '^$' "$err" | head -n 3)"
+    exit 1
+fi
+
+if [ -z "$(printf '%s' "$text" | tr -d '[:space:]')" ]; then
     notify-send -a Quickshell -t 2000 "OCR" "No text found"
     exit 0
 fi

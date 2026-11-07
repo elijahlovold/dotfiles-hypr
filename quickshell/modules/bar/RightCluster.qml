@@ -99,29 +99,18 @@ Row {
         sourceComponent: Pill {
             ThemeSwitcherWidget {}
             Separator {}
-            DesktopWidgetToggle {}
-        }
-    }
-
-    // Utils
-    Loader {
-        active: root.full
-        sourceComponent: Pill {
-            spacing: 10
             DrawToggle {}
             Separator {}
-            ReticleToggle {}
-            Separator {}
-            ColorPicker {}
-            Separator {}
-            UnitTools {}
-            Separator {}
             ScreenRec {}
+            Separator {}
+            DesktopWidgetToggle {}
         }
     }
 
     // Clock
     Pill {
+        Timers {}
+        Separator {}
         Clock {
             full: root.full
         }

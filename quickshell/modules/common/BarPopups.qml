@@ -34,6 +34,14 @@ Singleton {
         root.targets = root.targets.filter(t => t !== target);
     }
 
+    // Inside bar/OffBarWidgets: registered but never drawn.
+    function isOffBar(item) {
+        for (let p = item; p; p = p.parent)
+            if (p.offBar === true)
+                return true;
+        return false;
+    }
+
     function findPill(item) {
         for (let p = item; p; p = p.parent)
             if (p.isPill === true)
@@ -42,13 +50,17 @@ Singleton {
     }
 
     function summon(name, floating) {
+        // Off-bar widgets have no pill to dock under: always floating.
+        const offBar = root.targets.filter(t => t.name === name && t.widget && root.isOffBar(t.widget));
+        if (offBar.length > 0)
+            floating = true;
         // A floating popup doesn't hang from the bar, so a hidden bar is fine.
         if (!root.barShown && !floating) {
             Quickshell.execDetached(["notify-send", "-a", "Quickshell", "-u", "low", "-t", "1500", "Bar", "Bar is hidden (Super+Ctrl+Space)"]);
             return;
         }
         const focused = Hyprland.focusedMonitor?.name ?? "";
-        const candidates = root.targets.filter(t => t.name === name && t.widget && t.widget.visible && t.widget.width > 0);
+        const candidates = offBar.length > 0 ? offBar : root.targets.filter(t => t.name === name && t.widget && t.widget.visible && t.widget.width > 0);
         if (candidates.length === 0) {
             Quickshell.execDetached(["notify-send", "-a", "Quickshell", "-u", "low", "-t", "1500", "Bar", "Nothing to show for " + name]);
             return;

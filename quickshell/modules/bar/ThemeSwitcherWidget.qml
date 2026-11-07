@@ -5,7 +5,7 @@ import qs.modules.common
 
 // Bar button + dropdown for ThemeManager's structural theme (Minimal/
 // Cyber/Glass - shapes/motion, not the wallust palette). Same hover/click-
-// popup shape as ColorPicker.qml/UnitTools.qml. Distinct from
+// popup shape as UnitTools.qml. Distinct from
 // ThemeSwitcher.qml, which is the IPC entry point (`qs ipc call theme
 // set/next/list`) - this is just another way to reach ThemeManager.setTheme.
 Item {

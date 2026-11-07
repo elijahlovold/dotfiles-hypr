@@ -63,8 +63,15 @@ Scope {
             // Ignore a late dismiss from a panel that's already been
             // replaced (its close timer can outlive the swap).
             onDismissed: {
-                if (panelLoader.item === panel)
-                    root.close();
+                if (panelLoader.item !== panel)
+                    return;
+                const cmd = panel.afterCloseCmd;
+                root.close();
+                // After the Loader has dropped the panel, so its surface is
+                // gone before the command looks at the screen. Same wrapper
+                // as KeytreePanel.launch().
+                if (cmd)
+                    Qt.callLater(() => Quickshell.execDetached(["sh", "-c", 'sh -c "$1" || notify-send -a Keytree -u critical -t 5000 "Command failed" "exit $?: $1"', "keytree", cmd]));
             }
         }
     }

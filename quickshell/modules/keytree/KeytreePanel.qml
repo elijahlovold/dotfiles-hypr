@@ -9,6 +9,7 @@ import qs.modules.common
 import qs.modules.gif
 import qs.modules.imagepicker
 import qs.modules.keybinds
+import qs.modules.reticle
 import qs.modules.screens
 
 // QML/quickshell port of keytree's C++ KeyTreeModel + Main.qml. A modal
@@ -50,6 +51,7 @@ OverlaySurface {
     function reopen() {
         closeTimer.stop();
         root.launched = false;
+        root.afterCloseCmd = "";
         if (root.searchMode)
             root.exitSearch();
         // Before the level reset, so new node delegates animate in rather
@@ -93,8 +95,16 @@ OverlaySurface {
             "gif.toggle": () => Gif.toggle(),
             "imagepicker.toggle": () => ImagePicker.toggle(),
             "keybinds.toggle": () => Keybinds.toggle(),
+            "reticle.toggle": () => ReticleStore.toggleVisible(),
+            "reticle.edit": () => ReticleStore.toggleEditMode(),
             "screens.off": () => Screens.off()
         })
+
+    // A node's cmd marked `after_close: true`, held until the close
+    // animation has played and the panel is gone - Keytree.qml runs it on
+    // dismiss. For commands that capture the screen (hyprpicker freezes a
+    // screenshot of it), which would otherwise catch the menu mid-close.
+    property string afterCloseCmd: ""
 
     function launch(cmd) {
         root.launched = true;
@@ -221,6 +231,9 @@ OverlaySurface {
                     run();
                 else
                     Quickshell.execDetached(["notify-send", "-a", "Keytree", "-u", "critical", "-t", "5000", "Unknown action", node.action]);
+            } else if (node.after_close) {
+                root.launched = true;
+                root.afterCloseCmd = cmd;
             } else
                 root.launch(cmd);
             root.requestClose();
