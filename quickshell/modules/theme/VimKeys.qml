@@ -10,6 +10,8 @@ import QtQuick
 //   Space                       space
 //   Escape                      escape
 //   0 (not part of a count)     zero
+//   g0                          gzero
+//   $                           dollar
 //   any other single letter     "key:<letter>"  (e.g. "key:r")
 //
 // A numeric prefix becomes the count (`5j` -> down, 5). Pending state
@@ -80,7 +82,9 @@ QtObject {
                 return true;
             }
             if (text === "0") {
-                name = "zero";
+                name = vim.pending === "g" ? "gzero" : "zero";
+            } else if (text === "$") {
+                name = "dollar";
             } else if (text === "g") {
                 if (vim.pending !== "g") {
                     vim.pending = "g";

@@ -122,9 +122,11 @@ PillPopup {
     }
 
     // Keyboard cursor (vim motions): h/l a day, j/k a week, n/p a month,
-    // gg/G first/last day of the month, 0 back to today, Enter opens that
-    // day's note (same as clicking it). Starts on today;
-    // the shown month follows the cursor.
+    // gg/G first/last day of the month (of the year in the year view), 0/$
+    // start/end of the week row, w/b/e next week start / week start / week
+    // end, g0 back to today, Enter opens that day's note (same as clicking
+    // it). Starts on today; the shown month follows the cursor. The year view
+    // moves geometrically instead (see yearCell below).
     property var cursor: new Date(popup.todayDate.getFullYear(), popup.todayDate.getMonth(), popup.todayDate.getDate())
     readonly property string cursorKey: popup.dateKey(popup.cursor.getFullYear(), popup.cursor.getMonth(), popup.cursor.getDate())
 
@@ -155,6 +157,83 @@ PillPopup {
         popup.moveCursor(dow === 6 ? 7 * count : 6 - dow + 7 * (count - 1));
     }
 
+    // ── Year-view geometry ──
+    // The year view is a 21x24 grid of cells: 3x4 mini months of 7x6 cells,
+    // blanks included. Years stack vertically (y counts rows from year 0),
+    // so j/k run on into the next/previous year. hjkl, 0/$ and w/b/e walk
+    // that grid, skipping blank cells; each mini month's week row is a
+    // "word", read left to right, then down.
+    function yearCell(date) {
+        const m = date.getMonth();
+        const i = new Date(date.getFullYear(), m, 1).getDay() + date.getDate() - 1;
+        return { x: (m % 3) * 7 + i % 7, y: date.getFullYear() * 24 + Math.floor(m / 3) * 6 + Math.floor(i / 7) };
+    }
+
+    // The date at a cell, or null for a blank one.
+    function yearCellDate(x, y) {
+        const year = Math.floor(y / 24);
+        const row = y - year * 24;
+        const m = Math.floor(row / 6) * 3 + Math.floor(x / 7);
+        const day = (row % 6) * 7 + x % 7 - new Date(year, m, 1).getDay() + 1;
+        return day >= 1 && day <= new Date(year, m + 1, 0).getDate() ? new Date(year, m, day) : null;
+    }
+
+    // First non-blank cell of row y scanning from column `from` to `to`
+    // (either direction), as { x, y, date }, or null.
+    function yearScan(y, from, to) {
+        const dx = from <= to ? 1 : -1;
+        for (let x = from; x !== to + dx; x += dx) {
+            const date = popup.yearCellDate(x, y);
+            if (date)
+                return { x: x, y: y, date: date };
+        }
+        return null;
+    }
+
+    // hjkl: the next non-blank cell that way; sideways stops at the edge.
+    function yearStep(dx, dy, count) {
+        let p = popup.yearCell(popup.cursor);
+        let target = null;
+        for (let n = 0; n < count; n++) {
+            let x = p.x + dx;
+            let y = p.y + dy;
+            let date = null;
+            while (x >= 0 && x < 21 && !(date = popup.yearCellDate(x, y))) {
+                x += dx;
+                y += dy;
+            }
+            if (!date)
+                break;
+            target = date;
+            p = { x: x, y: y };
+        }
+        if (target)
+            popup.setCursor(target);
+    }
+
+    // w (dir 1), e (dir 1, toEnd) and b (dir -1): word k is segment k % 3
+    // of row k / 3. Like vim, e/b first finish the current word.
+    function yearWord(dir, toEnd, count) {
+        const segment = k => {
+            const y = Math.floor(k / 3);
+            const x0 = (k - y * 3) * 7;
+            return toEnd ? popup.yearScan(y, x0 + 6, x0) : popup.yearScan(y, x0, x0 + 6);
+        };
+        let p = popup.yearCell(popup.cursor);
+        let k = p.y * 3 + Math.floor(p.x / 7);
+        for (let n = 0; n < count; n++) {
+            let t = segment(k);
+            if (!t || (t.x - p.x) * dir <= 0) {
+                do {
+                    k += dir;
+                    t = segment(k);
+                } while (!t);
+            }
+            p = t;
+        }
+        popup.setCursor(p.date);
+    }
+
     function setCursor(date) {
         popup.hoverDate = null;
         popup.cursor = date;
@@ -165,22 +244,46 @@ PillPopup {
         const c = popup.cursor;
         switch (name) {
         case "left":
-            popup.moveCursor(-count);
+            if (popup.showYear)
+                popup.yearStep(-1, 0, count);
+            else
+                popup.moveCursor(-count);
             break;
         case "right":
-            popup.moveCursor(count);
+            if (popup.showYear)
+                popup.yearStep(1, 0, count);
+            else
+                popup.moveCursor(count);
             break;
         case "up":
-            popup.moveCursor(-7 * count);
+            if (popup.showYear)
+                popup.yearStep(0, -1, count);
+            else
+                popup.moveCursor(-7 * count);
             break;
         case "down":
-            popup.moveCursor(7 * count);
+            if (popup.showYear)
+                popup.yearStep(0, 1, count);
+            else
+                popup.moveCursor(7 * count);
             break;
         case "key:b":
-            popup.weekStart(count);
+            if (popup.showYear)
+                popup.yearWord(-1, false, count);
+            else
+                popup.weekStart(count);
             break;
         case "key:e":
-            popup.weekEnd(count);
+            if (popup.showYear)
+                popup.yearWord(1, true, count);
+            else
+                popup.weekEnd(count);
+            break;
+        case "key:w":
+            if (popup.showYear)
+                popup.yearWord(1, false, count);
+            else
+                popup.moveCursor(7 * count - c.getDay());
             break;
         case "next":
             popup.moveMonth(popup.showYear ? 12 * count : count);
@@ -193,12 +296,24 @@ PillPopup {
                 popup.yearView = !popup.yearView;
             break;
         case "top":
-            popup.setCursor(new Date(c.getFullYear(), c.getMonth(), 1));
+            popup.setCursor(new Date(c.getFullYear(), popup.showYear ? 0 : c.getMonth(), 1));
             break;
         case "bottom":
-            popup.setCursor(new Date(c.getFullYear(), c.getMonth() + 1, 0));
+            popup.setCursor(popup.showYear ? new Date(c.getFullYear(), 11, 31) : new Date(c.getFullYear(), c.getMonth() + 1, 0));
             break;
         case "zero":
+            if (popup.showYear)
+                popup.setCursor(popup.yearScan(popup.yearCell(c).y, 0, 20).date);
+            else
+                popup.moveCursor(-c.getDay());
+            break;
+        case "dollar":
+            if (popup.showYear)
+                popup.setCursor(popup.yearScan(popup.yearCell(c).y, 20, 0).date);
+            else
+                popup.moveCursor(6 - c.getDay());
+            break;
+        case "gzero":
             popup.setCursor(new Date(popup.todayDate.getFullYear(), popup.todayDate.getMonth(), popup.todayDate.getDate()));
             break;
         case "select":
