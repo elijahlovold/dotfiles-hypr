@@ -4,10 +4,9 @@ import qs.modules.theme
 import qs.modules.common
 import qs.modules.notifications
 
-// Left-click toggles the inbox preview (missed/timed-out notifications,
-// see NotificationsStore); right-click clears it outright. Same
-// opener-widget shape as Music.qml/Clock.qml - see CLAUDE.md's "right-click
-// popup pattern" section.
+// Hover opens the inbox preview (missed/timed-out notifications, see
+// NotificationsStore), left-click opens it floating; right-click clears it
+// outright. Same opener-widget shape as Music.qml/Clock.qml.
 Item {
     id: root
 
@@ -52,11 +51,12 @@ Item {
         cursorShape: Qt.PointingHandCursor
         onEntered: opener.hoverEntered()
         onExited: opener.hoverExited()
+        onPositionChanged: mouse => opener.hoverMoved(mapToItem(null, mouse.x, mouse.y))
         onClicked: mouse => {
             if (mouse.button === Qt.RightButton)
                 NotificationsStore.clearInbox();
             else
-                opener.toggle();
+                opener.toggleFloating();
         }
     }
 

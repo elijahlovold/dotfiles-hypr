@@ -41,7 +41,7 @@ Row {
     Loader {
         active: root.full
         sourceComponent: Pill {
-            Syncthing {}
+            Homelab {}
         }
     }
 

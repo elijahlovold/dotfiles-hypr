@@ -1,4 +1,5 @@
 import QtQuick
+import qs.modules.overlay
 
 // Opens and closes a bar widget's PillPopup (overlay/PillPopup.qml) - the
 // hover/click/keyboard plumbing every popup-owning widget shares. The widget
@@ -10,6 +11,7 @@ import QtQuick
 //       hoverEnabled: true
 //       onEntered: opener.hoverEntered()
 //       onExited: opener.hoverExited()
+//       onPositionChanged: mouse => opener.hoverMoved(mapToItem(null, mouse.x, mouse.y))
 //       onClicked: opener.toggle()
 //   }
 //   PopupOpener {
@@ -38,7 +40,17 @@ Item {
 
     function hoverEntered() {
         closeTimer.stop();
+        if (Overlays.hoverSuppressed?.widget === opener.widget)
+            return;
         hoverOpenTimer.restart();
+    }
+
+    // Cursor moved over the widget, `pos` in screen coordinates (the
+    // widget's MouseArea: mapToItem(null, mouse.x, mouse.y)).
+    function hoverMoved(pos) {
+        const s = Overlays.hoverSuppressed;
+        if (s?.widget === opener.widget && Math.hypot(pos.x - s.pos.x, pos.y - s.pos.y) > 2)
+            Overlays.hoverSuppressed = null;
     }
 
     function hoverExited() {
@@ -50,12 +62,34 @@ Item {
         opener.widget.previewOpen = !opener.widget.previewOpen;
     }
 
+    // Open as the centred floating window (see PillPopup), or close it if
+    // it's already floating. A docked popup that's open from the hover is
+    // reopened floating, the same hand-off as BarPopups.land().
+    function toggleFloating() {
+        const w = opener.widget;
+        // The click usually lands within the hover dwell; don't let that
+        // reopen it docked straight after.
+        hoverOpenTimer.stop();
+        closeTimer.stop();
+        if (w.previewOpen && Overlays.isFloating(w)) {
+            w.previewOpen = false;
+            return;
+        }
+        if (w.previewOpen)
+            w.previewOpen = false;
+        Overlays.floatingAnchor = w;
+        w.previewOpen = true;
+    }
+
     // Short dwell so sweeping the cursor across the bar doesn't flash every
     // popup on the way past.
     Timer {
         id: hoverOpenTimer
         interval: 50
-        onTriggered: opener.widget.previewOpen = true
+        onTriggered: {
+            if (!opener.widget.previewOpen)
+                opener.widget.previewOpen = true;
+        }
     }
 
     // Grace period for crossing from the pill into the popup below it.
@@ -63,7 +97,9 @@ Item {
         id: closeTimer
         interval: 250
         onTriggered: {
-            if (!(loader.item?.hovered ?? false))
+            // Floating popups aren't hung from the pill, so leaving the
+            // pill doesn't close them.
+            if (!Overlays.isFloating(opener.widget) && !(loader.item?.hovered ?? false))
                 opener.widget.previewOpen = false;
         }
     }

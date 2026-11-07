@@ -55,12 +55,18 @@ Item {
         // Reaches up through the gap above the pill to the screen edge
         // (overshoot past the bar's top is simply off-surface).
         anchors.topMargin: -Theme.barHeight
-        acceptedButtons: Qt.RightButton
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onEntered: opener.hoverEntered()
         onExited: opener.hoverExited()
-        onClicked: opener.toggle()
+        onPositionChanged: mouse => opener.hoverMoved(mapToItem(null, mouse.x, mouse.y))
+        onClicked: mouse => {
+            if (mouse.button === Qt.RightButton)
+                opener.toggle();
+            else
+                opener.toggleFloating();
+        }
     }
 
     PopupOpener {

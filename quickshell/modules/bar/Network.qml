@@ -98,7 +98,13 @@ Text {
         cursorShape: Qt.PointingHandCursor
         onEntered: opener.hoverEntered()
         onExited: opener.hoverExited()
-        onClicked: opener.toggle()
+        onPositionChanged: mouse => opener.hoverMoved(mapToItem(null, mouse.x, mouse.y))
+        onClicked: mouse => {
+            if (mouse.button === Qt.RightButton)
+                opener.toggle();
+            else
+                opener.toggleFloating();
+        }
     }
 
     PopupOpener {

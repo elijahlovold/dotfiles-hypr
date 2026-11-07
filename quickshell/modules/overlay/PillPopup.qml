@@ -39,7 +39,8 @@ import qs.modules.theme
 // popup works in both modes with no changes: floating just shows its card
 // scaled by `zoom` (floatZoom, capped to fit the screen). A popup that wants
 // a real floating layout reads `popup.floating` in its content (e.g. a wider
-// card, taller graphs, extra widgets) and usually lowers floatZoom to match.
+// card, taller graphs, extra widgets) but keeps the shared floatZoom, so
+// text is the same size across every floating popup.
 // Dragging any empty part of a floating popup (not a control) moves it like
 // a window (OverlaySurface.dragMove).
 // Floating popups always hold the keyboard, so Escape, a click outside or
@@ -70,8 +71,8 @@ OverlaySurface {
 
     // ── Docked / floating ────────────────────────────────────────────────
     readonly property bool floating: Overlays.isFloating(popup.anchorItem)
-    // Card scale in floating mode; popups with their own floating layout
-    // lower it.
+    // Card scale in floating mode - shared by every popup so floating text
+    // matches; capped below so a big card still fits the screen.
     property real floatZoom: 1.5
     readonly property real zoom: {
         if (!popup.floating)
@@ -99,7 +100,21 @@ OverlaySurface {
             popup.anchorItem.previewOpen = false;
     }
 
-    function dismiss() {
+    // `pos` (screen coordinates, from an outside press) lands on the
+    // popup's own bar widget: a click there toggles the floating popup
+    // closed, so the hover it re-enters with mustn't open it again.
+    function dismiss(pos) {
+        if (popup.floating && pos && popup.anchorItem) {
+            // Bar and overlay both start at the screen's top-left (same
+            // assumption as layout()); the widget's hit area reaches up to
+            // the screen edge.
+            const a = popup.anchorItem.mapToItem(null, 0, 0);
+            if (pos.x >= a.x && pos.x < a.x + popup.anchorItem.width && pos.y < a.y + popup.anchorItem.height)
+                Overlays.hoverSuppressed = {
+                    widget: popup.anchorItem,
+                    pos: pos
+                };
+        }
         popup.close();
     }
 

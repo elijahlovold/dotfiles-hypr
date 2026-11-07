@@ -1,6 +1,6 @@
 #!/bin/sh
-# Removable drives (udisksctl) and MTP phones (android-file-transfer) for
-# the quickshell Drives pill.
+# Drives (udisksctl) and MTP phones (android-file-transfer) for the
+# quickshell Drives pill - every disk's filesystems, removable or not.
 #
 #   hypr-usb list                 JSON: {drives: [...], phones: [...], phoneMount}
 #   hypr-usb open <partition>     mount if needed, open a terminal there
@@ -9,6 +9,7 @@
 #   hypr-usb open-phone           aft-mtp-mount, open a terminal there
 #   hypr-usb unmount-phone
 #   hypr-usb gui-phone            android-file-transfer (needs the device free)
+#   hypr-usb scrcpy               mirror the phone's screen (needs USB debugging)
 #
 # aft-mtp-mount only ever grabs the first MTP device, so there's a single
 # phone mountpoint rather than one per device.
@@ -32,17 +33,33 @@ mountpoint_of() {
 }
 
 list_drives() {
-    # Partitions (or bare filesystems) on USB/hotplug disks - skips the
-    # internal NVMe/SATA disks and anything without a filesystem.
-    { lsblk -J -o NAME,PATH,LABEL,SIZE,FSTYPE,MOUNTPOINT,MODEL,TRAN,HOTPLUG,TYPE 2>/dev/null ||
+    # Every real filesystem: partitions (or bare filesystems) on all disks,
+    # following LUKS/LVM children down to the filesystem inside. Skips swap,
+    # containers without a filesystem, zram and loop devices. Sizes are
+    # bytes; fsused/fsavail are null while unmounted. A btrfs filesystem with
+    # several subvolume mounts reports its shortest mountpoint ("/" over
+    # "/home"). Removable = USB/hotplug/rm, which is what gets eject.
+    { lsblk -J -b -o NAME,PATH,LABEL,SIZE,FSTYPE,FSSIZE,FSUSED,FSAVAIL,MOUNTPOINTS,MODEL,TRAN,HOTPLUG,RM,ROTA,TYPE 2>/dev/null ||
         echo '{"blockdevices": []}'; } | jq -c '
+        def truthy: . == true or . == "1" or . == 1;
+        def leaves: if (.children // []) | length > 0 then .children[] | leaves else . end;
         [.blockdevices[]
-         | select(.type == "disk" and (.tran == "usb" or .hotplug == true or .hotplug == "1"))
+         | select(.type == "disk" and (.name | test("^(zram|loop)") | not))
          | . as $disk
-         | ($disk.children // [$disk])[]
-         | select(.fstype != null)
-         | {path, label: (.label // ""), size, fstype, mountpoint: (.mountpoint // ""),
-            disk: $disk.path, model: (($disk.model // "") | gsub("^\\s+|\\s+$"; ""))}]'
+         | (($disk.tran == "usb") or ($disk.hotplug | truthy) or ($disk.rm | truthy)) as $removable
+         | (if ($disk.name | test("^mmcblk")) or (($disk.model // "") | test("\\bSD\\b|MMC|Card"; "i")) then "sd"
+            elif $disk.tran == "usb" and ($disk.rota | truthy | not) and ($disk.rm | truthy | not) then "ssd"
+            elif $disk.tran == "usb" then "usb"
+            elif $disk.tran == "nvme" or ($disk.name | test("^nvme")) then "nvme"
+            elif ($disk.rota | truthy) then "hdd"
+            else "ssd" end) as $kind
+         | ($disk | leaves)
+         | select(.fstype != null and (.fstype | test("^(swap|crypto_LUKS|LVM2_member|linux_raid_member)$") | not))
+         | {path, label: (.label // ""), size: (.size // 0), fstype,
+            mountpoint: ([(.mountpoints // [])[] | select(. != null)] | sort_by(length) | first // ""),
+            fssize: .fssize, fsused: .fsused, fsavail: .fsavail,
+            disk: $disk.path, diskSize: ($disk.size // 0), kind: $kind, removable: $removable,
+            model: (($disk.model // "") | gsub("^\\s+|\\s+$"; ""))}]'
 }
 
 list_phones() {
@@ -118,7 +135,13 @@ gui-phone)
     unmount_phone
     setsid -f android-file-transfer >/dev/null 2>&1
     ;;
+scrcpy)
+    # adb is a separate USB interface from MTP, so this works alongside a
+    # mounted phone - but only once USB debugging is on and authorised.
+    state=$(adb get-state 2>&1) || die "no adb device - enable USB debugging and accept the prompt (${state##*: })"
+    setsid -f scrcpy >/dev/null 2>&1
+    ;;
 *)
-    die "usage: hypr-usb list|open|unmount|eject|open-phone|unmount-phone|gui-phone"
+    die "usage: hypr-usb list|open|unmount|eject|open-phone|unmount-phone|gui-phone|scrcpy"
     ;;
 esac

@@ -3,9 +3,11 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-// Removable drives + MTP phones from scripts/hypr-usb, re-listed only when
-// something actually changes - no polling. Two long-lived watchers feed a
-// short debounce (a single plug-in fires a burst of udev events):
+// Every disk's filesystems + MTP phones from scripts/hypr-usb, re-listed
+// only when something actually changes - no polling (fill levels can drift
+// between events, so DrivesPreview also re-lists when it opens). Two
+// long-lived watchers feed a short debounce (a single plug-in fires a burst
+// of udev events):
 //   - `udevadm monitor` for block/usb add/remove (drives, phones)
 //   - `findmnt --poll` for mount table changes (udisksctl, aft-mtp-mount,
 //     or anything else mounting/unmounting outside the bar)

@@ -19,7 +19,6 @@ PillPopup {
 
     cardWidth: card.width
     cardHeight: card.height
-    floatZoom: 1.4
 
     required property MprisPlayer player
 

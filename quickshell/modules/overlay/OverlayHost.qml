@@ -87,7 +87,7 @@ Scope {
                 anchors.fill: parent
                 enabled: host.modal
                 acceptedButtons: Qt.AllButtons
-                onPressed: Overlays.outsidePressed()
+                onPressed: mouse => Overlays.outsidePressed(Qt.point(mouse.x, mouse.y))
             }
 
             Item {

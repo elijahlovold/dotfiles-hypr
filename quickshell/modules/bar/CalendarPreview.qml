@@ -17,9 +17,8 @@ PillPopup {
 
     cardWidth: card.width
     cardHeight: card.height
-    // Floating keeps the docked size but adds a yearly view (`y`) and an
-    // Agenda pane for the hovered day; docked is just the month grid.
-    floatZoom: 1
+    // Floating adds a yearly view (`y`) and an Agenda pane for the hovered
+    // day; docked is just the month grid.
 
     readonly property string dailyNoteScript: "todays-notes"
 

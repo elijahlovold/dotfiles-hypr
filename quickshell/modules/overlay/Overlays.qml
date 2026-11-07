@@ -56,6 +56,13 @@ Singleton {
         return anchor !== null && root.floatingAnchor === anchor;
     }
 
+    // {widget, pos}: a floating popup was just closed by a click on its own
+    // bar widget (PillPopup.dismiss, pos in screen coordinates). The cursor
+    // "re-enters" the widget (more than once) as the modal overlay lets go;
+    // PopupOpener ignores those hovers until the cursor actually moves, so
+    // the click closes the popup instead of reopening it docked.
+    property var hoverSuppressed: null
+
     // ── Keyboard ownership ───────────────────────────────────────────────────
     property Item modal: null
 
@@ -93,9 +100,10 @@ Singleton {
 
     // A press outside every surface on the modal screen (OverlayHost's
     // backdrop).
-    function outsidePressed() {
+    // `pos` is in host (= screen) coordinates.
+    function outsidePressed(pos) {
         if (root.modal)
-            root.modal.dismiss();
+            root.modal.dismiss(pos);
         else
             root.unhold();
     }

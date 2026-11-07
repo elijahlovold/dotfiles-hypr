@@ -3,17 +3,18 @@ import QtQuick
 import qs.modules.theme
 import qs.modules.common
 
-// Removable drives + MTP phones (state in DrivesState.qml, event-driven). Same
-// collapse-when-empty convention as SerialWatcher.qml - invisible unless
-// something is plugged in. Left- or right-click opens DrivesPreview.
+// Drives + MTP phones (state in DrivesState.qml, event-driven). Always shown
+// now that the popup covers every disk: mounted/total filesystems, then the
+// phone glyph with a dot while it's mounted. Hover or right-click opens
+// DrivesPreview docked, left-click opens it floating.
 Item {
     id: root
 
-    readonly property string iconUsb: String.fromCharCode(0xf287) // fa-usb
+    readonly property string iconDrive: String.fromCodePoint(0xf02ca) // md-harddisk
     readonly property string iconPhone: String.fromCharCode(0xf10b) // fa-mobile
+    readonly property int mountedCount: DrivesState.drives.filter(d => d.mountpoint.length > 0).length
     property bool previewOpen: false
 
-    visible: DrivesState.drives.length > 0 || DrivesState.phones.length > 0
     implicitWidth: label.width
     implicitHeight: label.height
     width: implicitWidth
@@ -22,12 +23,10 @@ Item {
     Text {
         id: label
         text: {
-            const parts = [];
-            if (DrivesState.drives.length > 0)
-                parts.push(root.iconUsb + "  " + DrivesState.drives.length);
+            let s = root.iconDrive + "  " + root.mountedCount + "/" + DrivesState.drives.length;
             if (DrivesState.phones.length > 0)
-                parts.push(root.iconPhone + (DrivesState.phoneMount.length > 0 ? "  ●" : ""));
-            return parts.join("   ");
+                s += "   " + root.iconPhone + (DrivesState.phoneMount.length > 0 ? "  ●" : "");
+            return s;
         }
         color: Theme.text
         font.family: Theme.fontFamily
@@ -44,14 +43,19 @@ Item {
         cursorShape: Qt.PointingHandCursor
         onEntered: opener.hoverEntered()
         onExited: opener.hoverExited()
-        onClicked: opener.toggle()
+        onPositionChanged: mouse => opener.hoverMoved(mapToItem(null, mouse.x, mouse.y))
+        onClicked: mouse => {
+            if (mouse.button === Qt.RightButton)
+                opener.toggle();
+            else
+                opener.toggleFloating();
+        }
     }
 
     PopupOpener {
         id: opener
         widget: root
         name: "drives"
-        available: root.visible
         popup: DrivesPreview {
             anchorItem: root
             drives: DrivesState.drives

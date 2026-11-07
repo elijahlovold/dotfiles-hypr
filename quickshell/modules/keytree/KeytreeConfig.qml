@@ -83,6 +83,7 @@ Singleton {
         "o": { icon: "  ", label: "Obsidian", cmd: "obsidian \"obsidian://open?vault=vault\"" , shift_cmd: "obsidian \"obsidian://open?vault=Shared-Vault\"" },
         "p": { icon: "  ", label: "Python",   cmd: "alacritty -e python3.14" },
         "t": { icon: "󰄛  ", label: "Kitty",    cmd: "kitty" },
+        "y": { icon: "  ", label: "Scrcpy",   cmd: "scrcpy" },
         "z": { icon: "󰈙  ", label: "Zathura",  cmd: "zathura" },
         "b": {
           label: "Bookmarks/",
@@ -191,11 +192,13 @@ Singleton {
           children: {
             "o": { icon: "󱑽  ", label: "O-Scope",   cmd: "firefox http://10.11.13.220" },
             "b": { icon: "󰁯  ", label: "Backrest",  cmd: "firefox http://localhost:9898/" },
+            "h": { icon: "󰒋  ", label: "Homelab",   popup: "homelab" },
             "i": { icon: "  ", label: "Immich",    cmd: "firefox https://immich.elovold.xyz" },
             "j": { icon: "󰿎  ", label: "Jellyfin",  cmd: "firefox https://jellyfin.elovold.xyz" },
-            "p": { icon: "󰡨  ", label: "Portainer", cmd: "firefox https://edel:9443/" },
+            "p": { icon: "󰡨  ", label: "Portainer", cmd: "firefox http://edel:9000/" },
             "s": { icon: "  ", label: "Stirling",  cmd: "firefox http://edel:8080/" },
             "t": { icon: "󰖂  ", label: "TailScale", cmd: "firefox https://login.tailscale.com/" },
+            "y": { icon: "  ", label: "Syncthing", cmd: "firefox http://localhost:8384/" },
           }
         },
       },
@@ -213,6 +216,7 @@ Singleton {
         "e": { icon: "  ", label: "Serial",         popup: "serial" },
         "h": { icon: "  ", label: "System monitor", popup: "sysmon" },
         "i": { icon: "  ", label: "Wi-Fi",          popup: "wifi" },
+        "l": { icon: "󰒋  ", label: "Homelab",        popup: "homelab" },
         "m": { icon: "  ", label: "Music",          popup: "music" },
         "n": { icon: "  ", label: "Notifications",  popup: "notifications" },
         "p": { icon: "  ", label: "Color picker",   popup: "colorpicker" },
