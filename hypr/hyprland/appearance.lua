@@ -15,7 +15,7 @@ hl.config({
         new_status = "master",
     },
     scrolling = {
-        direction = "right", -- overridden in rules.lua
+        direction = "right", -- portrait monitors: "down", see rules.lua
         column_width = 0.49,
         wrap_swapcol = false,
     },

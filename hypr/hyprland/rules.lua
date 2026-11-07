@@ -1,16 +1,31 @@
-hl.workspace_rule({
-    workspace = "m[DP-2]",
-    layout_opts = {
-        direction = "right",
-    },
-})
+-- Portrait monitors scroll down instead of right (appearance.lua's
+-- default). Workspace rules can only select a monitor by name, so one is
+-- made per monitor as it shows up and switched on/off by its orientation:
+-- rotated a quarter turn (odd transform) flips its mode's own shape.
+local portraitRules = {}
 
-hl.workspace_rule({
-    workspace = "m[DP-1]",
-    layout_opts = {
-        direction = "down",
-    },
-})
+local function syncScrollDirections()
+    for _, m in ipairs(hl.get_monitors() or {}) do
+        local portrait = (m.width < m.height) ~= (m.transform % 2 == 1)
+        local rule = portraitRules[m.name]
+        if not rule and portrait then
+            rule = hl.workspace_rule({
+                workspace = "m[" .. m.name .. "]",
+                layout_opts = {
+                    direction = "down",
+                },
+            })
+            portraitRules[m.name] = rule
+        end
+        if rule then
+            rule:set_enabled(portrait)
+        end
+    end
+end
+
+syncScrollDirections()
+hl.on("monitor.added", syncScrollDirections)
+hl.on("monitor.layout_changed", syncScrollDirections)
 
 hl.window_rule({
     name = "generic-float",

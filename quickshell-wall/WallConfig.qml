@@ -34,18 +34,15 @@ Singleton {
     // `qs ipc call wallpaper clear` - back to the default theme.
     readonly property var clearThemeCommand: ["hypr-theme", "--default"]
 
-    // ---- Portrait screen ----
-    // Videos don't crop well to the rotated monitor, so it gets a static
-    // image instead - the Arch wallpaper beside this file, recoloured with
-    // the palette on the GPU, morphing whenever the palette changes
-    // (PortraitWindow). Shown while a video is: `wallpaper stop`/`clear`
-    // drop it too.
-    readonly property string portraitScreen: "DP-1"
+    // ---- Screens ----
+    // Every landscape screen plays the video (scaled to fit, so 4K videos
+    // are fine on 1080p). Portrait screens, which videos don't crop well
+    // to, get a static image instead - the Arch wallpaper beside this
+    // file, recoloured with the palette on the GPU, morphing whenever the
+    // palette changes (PortraitWindow). Shown while a video is:
+    // `wallpaper stop`/`clear` drop it too.
 
     // ---- Playback ----
-    // Output the wallpaper plays on. While it's disconnected or disabled
-    // (hypr-toggle-monitors' solo mode) nothing plays.
-    readonly property string screen: "DP-2"
     // On launch: "random" picks a new one, "last" resumes stateFile's.
     readonly property string startup: "random"
     // Pause while the screen's workspace has a fullscreen window (what

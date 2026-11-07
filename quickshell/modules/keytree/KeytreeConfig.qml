@@ -96,6 +96,7 @@ Singleton {
             "m": { icon: "󰇮  ", label: "Mail",       cmd: "firefox --new-window https://mail.google.com/mail/u/0/#inbox" },
             "n": { icon: "󰼭  ", label: "Monkeytype", cmd: "firefox --new-window https://monkeytype.com/" },
             "t": { icon: "󰧑  ", label: "ChatGPT",    cmd: "firefox --new-window https://chatgpt.com/" },
+            "u": { icon: "❄  ", label: "Stevens",    cmd: "firefox --new-window https://www.stevenspass.com/the-mountain/mountain-conditions/mountain-cams.aspx" },
             "w": { icon: "󰖬  ", label: "Wikipedia",  cmd: "firefox --new-window https://www.wikipedia.org/" },
             "y": { icon: "󰗃  ", label: "Youtube",    cmd: "firefox --new-window https://youtube.com/" },
           }

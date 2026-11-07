@@ -6,6 +6,7 @@ import Quickshell.Hyprland
 import qs.modules.theme
 import qs.modules.common
 import Quickshell.Io
+import Qt5Compat.GraphicalEffects
 
 Scope {
     // Show/hide every bar: Super+Ctrl+Space sends `custom>>bar:toggle` from
@@ -60,11 +61,9 @@ Scope {
             visible: BarPopups.barShown
 
             // Mirrors the old i3 bar {} blocks: the primary monitor got the full
-            // i3status-rust config + tray, DP-1 (was DisplayPort-0) got the short
-            // config. DP-1 is the only output ever special-cased by name - whichever
-            // monitor is playing "primary" (DP-2 in dual mode, HDMI-A-1 when solo -
-            // see toggle-monitors) gets the full treatment, so both get the same
-            // bar layout without hardcoding either name.
+            // i3status-rust config + tray, the portrait one the short config.
+            // Roles go by orientation (see MonitorRoles), so every landscape
+            // screen gets the full bar without naming any output.
             readonly property bool full: !MonitorRoles.isSecondary(barRoot.modelData)
             readonly property bool showTray: barRoot.full
 
@@ -90,21 +89,59 @@ Scope {
                 // anchors.verticalCenter: parent.verticalCenter
             }
 
-            // Hugs the right edge normally (same as a plain anchors.right),
-            // but never slides further left than just past Workspaces - on
-            // a narrow monitor where RightCluster's natural content is
-            // wider than the room available, it stays put there instead of
-            // sliding left and rendering over/under the workspace pill.
-            // Whatever doesn't fit past that point runs off the right edge
-            // of the bar's own surface instead (invisible past the window's
-            // bounds) rather than covering Workspaces.
-            RightCluster {
-                id: rightCluster
-                full: barRoot.full
-                showTray: barRoot.showTray
+            // Everything past the workspace pill. RightCluster hugs the
+            // right edge so the clock and tray always show; on a monitor too
+            // narrow for all of it, the overflow runs off this area's left
+            // edge (clipped, never over Workspaces) and the cut-off side
+            // fades out. The fade masks the whole area at once rather than
+            // touching any widget, and only exists while something is cut.
+            Item {
+                id: rightArea
+
+                readonly property bool overflowing: rightCluster.width > rightArea.width
+                readonly property int fadeWidth: 48
+
+                anchors.left: workspacesItem.right
+                anchors.leftMargin: 8
+                anchors.right: parent.right
+                anchors.rightMargin: 8
+                anchors.top: parent.top
                 anchors.bottom: parent.bottom
-                // anchors.verticalCenter: parent.verticalCenter
-                x: Math.max(workspacesItem.x + workspacesItem.width + 8, parent.width - rightCluster.width - 8)
+                clip: true
+
+                layer.enabled: rightArea.overflowing
+                layer.effect: OpacityMask {
+                    maskSource: fadeMask
+                }
+
+                RightCluster {
+                    id: rightCluster
+                    full: barRoot.full
+                    showTray: barRoot.showTray
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                }
+            }
+
+            // Mask for rightArea: transparent at its left edge, opaque
+            // fadeWidth px in.
+            Rectangle {
+                id: fadeMask
+                width: rightArea.width
+                height: rightArea.height
+                visible: false
+                layer.enabled: rightArea.overflowing
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop {
+                        position: 0
+                        color: "transparent"
+                    }
+                    GradientStop {
+                        position: Math.min(1, rightArea.fadeWidth / Math.max(1, rightArea.width))
+                        color: "black"
+                    }
+                }
             }
         }
     }

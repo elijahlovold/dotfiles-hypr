@@ -27,7 +27,7 @@
 # every monitor's rotation baked in, keyed by monitor id - the shader's
 # hyprTransform() - so effects point the same way on all of them. Ids and
 # rotations come from `hyprctl monitors` at apply time, so a monitor change
-# needs `hypr-shader refresh` (hypr-toggle-monitors runs it).
+# needs `hypr-shader refresh` (monitors.lua runs it after a profile switch).
 #
 # Changes are made at runtime with `hyprctl eval`, so a config reload
 # (Super+Shift+R) also turns the shader off; the state file is just what

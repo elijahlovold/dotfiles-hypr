@@ -39,7 +39,12 @@ ShellRoot {
     // `ipc call wallpaper effect` wins until WallConfig.effect is edited.
     readonly property string effect: persist.effectOverride || WallConfig.effect
 
-    readonly property ShellScreen screen: Quickshell.screens.find(s => s.name === WallConfig.screen) ?? null
+    // By orientation, not name (outputs are only named in
+    // hypr/hyprland/monitors.lua): landscape screens play the video,
+    // portrait ones get the portrait image (videos don't crop well to
+    // them). A screen's geometry is already rotated by its transform.
+    readonly property var landscapeScreens: Quickshell.screens.filter(s => s.width >= s.height)
+    readonly property var portraitScreens: Quickshell.screens.filter(s => s.width < s.height)
 
     // path: a video, a stream URL, or a video's .png still (what the image
     // picker lists). origin: "x,y" in global px for the effect to start
@@ -47,7 +52,8 @@ ShellRoot {
     function show(path, origin) {
         const video = path.replace(/\.png$/, ".mp4");
         root.target = video;
-        windowLoader.item?.switchTo(video, origin);
+        for (const w of videoWindows.instances)
+            w.switchTo(video, origin);
     }
 
     // Once the new video is actually playing: theme from its still and
@@ -108,13 +114,16 @@ ShellRoot {
         printErrors: false
     }
 
-    Loader {
-        id: windowLoader
-        // Unloading releases both players; a screen coming back reloads
-        // the current video without a transition.
-        active: root.screen !== null && root.target !== ""
-        sourceComponent: WallpaperWindow {
-            screen: root.screen
+    // One per landscape screen, each playing the same video. Gone while
+    // stopped, which releases the players; a screen coming (back) loads
+    // the current video without a transition.
+    Variants {
+        id: videoWindows
+        model: root.target !== "" ? root.landscapeScreens : []
+
+        WallpaperWindow {
+            required property ShellScreen modelData
+            screen: modelData
             effectSetting: root.effect
             onSwitched: path => root.onSwitched(path)
             onFailed: path => root.onFailed(path)
@@ -122,16 +131,14 @@ ShellRoot {
         }
     }
 
-    // Up alongside the video: stop/clear drop it, any set/random/stream
-    // brings it back (re-rendered from the palette as it loads).
-    Loader {
-        id: portraitLoader
+    // Up alongside the video: stop/clear drop them, any set/random/stream
+    // brings them back (re-rendered from the palette as they load).
+    Variants {
+        model: root.target !== "" ? root.portraitScreens : []
 
-        readonly property ShellScreen screen: Quickshell.screens.find(s => s.name === WallConfig.portraitScreen) ?? null
-
-        active: portraitLoader.screen !== null && root.target !== ""
-        sourceComponent: PortraitWindow {
-            screen: portraitLoader.screen
+        PortraitWindow {
+            required property ShellScreen modelData
+            screen: modelData
         }
     }
 
