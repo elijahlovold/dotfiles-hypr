@@ -17,7 +17,7 @@ PillPopup {
 
     cardWidth: card.width
     cardHeight: card.height
-    // Floating adds a yearly view (`y`) and an Agenda pane for the hovered
+    // Floating adds a yearly view (`-`) and an Agenda pane for the hovered
     // day; docked is just the month grid.
 
     readonly property string dailyNoteScript: "todays-notes"
@@ -291,7 +291,7 @@ PillPopup {
         case "prev":
             popup.moveMonth(popup.showYear ? -12 * count : -count);
             break;
-        case "key:y":
+        case "minus":
             if (popup.floating)
                 popup.yearView = !popup.yearView;
             break;
@@ -536,7 +536,7 @@ PillPopup {
             }
         }
 
-        // ── Yearly view (floating, `y`): twelve mini months, like `cal 2026`.
+        // ── Yearly view (floating, `-`): twelve mini months, like `cal 2026`.
         Grid {
             id: yearGrid
             x: 16
