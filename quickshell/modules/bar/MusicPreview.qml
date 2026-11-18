@@ -205,22 +205,39 @@ PillPopup {
                 width: parent.width
                 spacing: 14
 
-                ClippingRectangle {
+                // The ring is a plain Rectangle over a borderless clip:
+                // ClippingRectangle's own border goes through its mask
+                // shader and comes out aliased, uneven, and fringed. The
+                // clip is inset 1px so its (also aliased) edge sits under
+                // the ring.
+                Item {
                     id: artWrap
                     width: 92
                     height: 92
-                    radius: width / 2
                     anchors.verticalCenter: parent.verticalCenter
-                    color: Theme.pillBg
-                    border.width: 2
-                    border.color: (popup.player?.isPlaying ?? false) ? Theme.accent : Theme.pillBorder
-                    Behavior on border.color { ColorAnimation { duration: 400 } }
 
-                    Image {
+                    ClippingRectangle {
                         anchors.fill: parent
-                        fillMode: Image.PreserveAspectCrop
-                        asynchronous: true
-                        source: popup.player?.trackArtUrl ?? ""
+                        anchors.margins: 1
+                        radius: width / 2
+                        color: Theme.pillBg
+
+                        Image {
+                            anchors.fill: parent
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            source: popup.player?.trackArtUrl ?? ""
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: width / 2
+                        color: "transparent"
+                        antialiasing: true
+                        border.width: 2
+                        border.color: (popup.player?.isPlaying ?? false) ? Theme.accent : Theme.pillBorder
+                        Behavior on border.color { ColorAnimation { duration: 400 } }
                     }
                 }
 
