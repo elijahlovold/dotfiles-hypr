@@ -74,6 +74,17 @@ Singleton {
         hub: "ring"                // root center: "ring" (empty node-sized circle) or "dot"
     })
 
+    // A cmd or shift_cmd containing {{query}} first pops a one-line text
+    // prompt titled with the node's label, then runs with the text in
+    // place of the placeholder; {{query:url}} is the same text
+    // percent-encoded, for search terms inside a URL. Either can be used
+    // in cmd, shift_cmd, or both - e.g. open a site on the key and search
+    // it on Shift+key. Leave placeholders bare or in double quotes, never
+    // inside single quotes (see KeytreePanel's prompt mode).
+    // Each prompt remembers what was entered (PromptHistory), listed under
+    // the input as you type: Tab fills in the next match, Up/Down pick
+    // one, Shift+Delete forgets the picked one. `history: false` on a node
+    // keeps none for it.
     readonly property var trees: ({
       "default": {
         "i": { icon: "  ", label: "Iriun",    cmd: "iriunwebcam" },
@@ -91,14 +102,14 @@ Singleton {
           children: {
             "c": { icon: "  ", label: "Calendar",   cmd: "firefox --new-window https://calendar.google.com/calendar/u/0/r" },
             "d": { icon: "󰺄  ", label: "Dictionary", cmd: "firefox --new-window https://www.dictionary.com/" },
-            "g": { icon: "󰊤  ", label: "Github",     cmd: "firefox --new-window https://github.com/elijahlovold?tab=repositories" },
+            "g": { icon: "󰊤  ", label: "Github",     cmd: "firefox --new-window https://github.com/elijahlovold?tab=repositories", shift_cmd: "firefox --new-window https://github.com/{{query}}" },
             "l": { icon: "󰌻  ", label: "Linkedin",   cmd: "firefox --new-window https://www.linkedin.com/feed/" },
             "m": { icon: "󰇮  ", label: "Mail",       cmd: "firefox --new-window https://mail.google.com/mail/u/0/#inbox" },
             "n": { icon: "󰼭  ", label: "Monkeytype", cmd: "firefox --new-window https://monkeytype.com/" },
-            "t": { icon: "󰧑  ", label: "ChatGPT",    cmd: "firefox --new-window https://chatgpt.com/" },
+            "t": { icon: "󰧑  ", label: "ChatGPT",    cmd: "firefox --new-window https://chatgpt.com/", shift_cmd: "firefox --new-window \"https://chatgpt.com/?q={{query:url}}\"", history: false },
             "u": { icon: "❄  ", label: "Stevens",    cmd: "firefox --new-window https://www.stevenspass.com/the-mountain/mountain-conditions/mountain-cams.aspx" },
             "w": { icon: "󰖬  ", label: "Wikipedia",  cmd: "firefox --new-window https://www.wikipedia.org/" },
-            "y": { icon: "󰗃  ", label: "Youtube",    cmd: "firefox --new-window https://youtube.com/" },
+            "y": { icon: "󰗃  ", label: "Youtube",    cmd: "firefox --new-window https://youtube.com/", shift_cmd: "firefox https://www.youtube.com/results?search_query={{query}}" },
           }
         },
         "d": {
@@ -169,10 +180,10 @@ Singleton {
           label: "Work/",
           icon: "󰸖  ",
           children: {
-            "b": { icon: "  ", label: "Bitbucket", cmd: "google-chrome https://bitbucket.org/cadenceneuro/workspace/overview/" },
+            "b": { icon: "  ", label: "Bitbucket", cmd: "google-chrome https://bitbucket.org/cadenceneuro/workspace/overview/", shift_cmd: "google-chrome https://bitbucket.org/cadenceneuro/{{query}}" },
             "c": { icon: "  ", label: "Calendar",  cmd: "google-chrome https://calendar.google.com/calendar/u/0/r" },
-            "d": { icon: "  ", label: "Drive",     cmd: "google-chrome https://drive.google.com/drive/home" },
-            "j": { icon: "  ", label: "Jira",      cmd: "google-chrome https://cadenceneuro.atlassian.net/issues?filter=11558" },
+            "d": { icon: "  ", label: "Drive",     cmd: "google-chrome https://drive.google.com/drive/home", shift_cmd: "google-chrome \"https://drive.google.com/drive/search?q={{query:url}}\"" },
+            "j": { icon: "  ", label: "Jira",      cmd: "google-chrome https://cadenceneuro.atlassian.net/issues?filter=11558", shift_cmd: "google-chrome https://cadenceneuro.atlassian.net/browse/{{query}}" },
             "m": { icon: "󰇮  ", label: "Mail",      cmd: "google-chrome https://mail.google.com/mail/u/0/#inbox" },
             "o": { icon: "  ", label: "Obsidian",  cmd: "obsidian \"obsidian://open?vault=Shared-Vault\"" },
             "w": { icon: "󰧑  ", label: "Wiki",      cmd: "google-chrome https://sites.google.com/cadenceneuro.com/team/home?pli=1" },

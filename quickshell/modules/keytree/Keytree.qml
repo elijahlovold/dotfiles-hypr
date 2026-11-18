@@ -11,6 +11,10 @@ Scope {
 
     property string activeConfig: ""
 
+    // Created now rather than on first use, so prompt history is already
+    // loaded by the time a prompt opens.
+    Component.onCompleted: PromptHistory
+
     // A panel still playing its close animation counts as closed - so a
     // quick reopen replaces it rather than toggling it shut.
     readonly property bool isOpen: root.activeConfig.length > 0 && !(panelLoader.item?.closing ?? false)
@@ -66,12 +70,14 @@ Scope {
                 if (panelLoader.item !== panel)
                     return;
                 const cmd = panel.afterCloseCmd;
+                const query = panel.afterCloseQuery;
+                const script = panel.launchScript;
                 root.close();
                 // After the Loader has dropped the panel, so its surface is
                 // gone before the command looks at the screen. Same wrapper
                 // as KeytreePanel.launch().
                 if (cmd)
-                    Qt.callLater(() => Quickshell.execDetached(["sh", "-c", 'sh -c "$1" || notify-send -a Keytree -u critical -t 5000 "Command failed" "exit $?: $1"', "keytree", cmd]));
+                    Qt.callLater(() => Quickshell.execDetached(["sh", "-c", script, "keytree", cmd, query, encodeURIComponent(query)]));
             }
         }
     }

@@ -36,7 +36,7 @@ OverlaySurface {
     function requestClose() {
         if (root.closing)
             return;
-        if (root.searchMode) {
+        if (root.textMode) {
             root.dismissed();
             return;
         }
@@ -52,8 +52,11 @@ OverlaySurface {
         closeTimer.stop();
         root.launched = false;
         root.afterCloseCmd = "";
+        root.afterCloseQuery = "";
         if (root.searchMode)
             root.exitSearch();
+        if (root.promptMode)
+            root.exitPrompt();
         // Before the level reset, so new node delegates animate in rather
         // than with the closing timings.
         root.closing = false;
@@ -106,12 +109,18 @@ OverlaySurface {
     // screenshot of it), which would otherwise catch the menu mid-close.
     property string afterCloseCmd: ""
 
-    function launch(cmd) {
+    // `query`: text typed into a prompt (see runPrompt), exported to the
+    // command as KEYTREE_QUERY / KEYTREE_QUERY_URL.
+    function launch(cmd, query) {
         root.launched = true;
         // cmd rides in as $1 so its quoting can't break the wrapper. A
         // missing binary (127) or any non-zero exit raises a notification.
-        Quickshell.execDetached(["sh", "-c", 'sh -c "$1" || notify-send -a Keytree -u critical -t 5000 "Command failed" "exit $?: $1"', "keytree", cmd]);
+        Quickshell.execDetached(["sh", "-c", root.launchScript, "keytree", cmd, query ?? "", encodeURIComponent(query ?? "")]);
     }
+
+    // Shared with Keytree.qml's after_close path. $2/$3 are the prompt
+    // text raw and percent-encoded, empty for an ordinary node.
+    readonly property string launchScript: 'export KEYTREE_QUERY="$2" KEYTREE_QUERY_URL="$3"; sh -c "$1" || notify-send -a Keytree -u critical -t 5000 "Command failed" "exit $?: $1"'
 
     // Click-catcher for the rest of the screen: a press anywhere off the
     // menu closes it (what clicking outside did before). The view decides
@@ -125,7 +134,7 @@ OverlaySurface {
         acceptedButtons: Qt.AllButtons
         onPressed: mouse => {
             const p = root.view ? mapToItem(root.view, mouse.x, mouse.y) : null;
-            if (root.searchMode ? contentItem.contains(mapToItem(contentItem, mouse.x, mouse.y)) : p && root.view.menuContains(p.x, p.y))
+            if (root.textMode ? contentItem.contains(mapToItem(contentItem, mouse.x, mouse.y)) : p && root.view.menuContains(p.x, p.y))
                 mouse.accepted = false;
             else
                 root.requestClose();
@@ -231,6 +240,13 @@ OverlaySurface {
                     run();
                 else
                     Quickshell.execDetached(["notify-send", "-a", "Keytree", "-u", "critical", "-t", "5000", "Unknown action", node.action]);
+            } else if (root.hasPlaceholder(cmd)) {
+                // Asks for text first; runPrompt() finishes the launch.
+                // History is per prompt: menu path, plus "+shift" when it's
+                // the shift_cmd asking. `history: false` keeps none.
+                const historyKey = node.history === false ? "" : [root.configName, ...root.currentPath(), k].join("/") + (shift && node.shift_cmd ? "+shift" : "");
+                root.enterPrompt(node, cmd, historyKey);
+                return;
             } else if (node.after_close) {
                 root.launched = true;
                 root.afterCloseCmd = cmd;
@@ -238,6 +254,17 @@ OverlaySurface {
                 root.launch(cmd);
             root.requestClose();
         }
+    }
+
+    // Keys from the root to the current level, e.g. ["b"] in Bookmarks/.
+    function currentPath() {
+        const levels = [...root.stack, root.current];
+        const path = [];
+        for (let i = 0; i + 1 < levels.length; i++) {
+            const children = levels[i].children ?? {};
+            path.push(Object.keys(children).find(key => children[key] === levels[i + 1]) ?? "");
+        }
+        return path;
     }
 
     function back() {
@@ -274,7 +301,7 @@ OverlaySurface {
 
     // Whether it struck. `replay`: a channel from menuBoltItem.geometry().
     function menuBolt(kind, from, to, replay) {
-        if (root.closing || root.searchMode || !Bolts.active("keytree") || !BoltConfig.keytree[kind])
+        if (root.closing || root.textMode || !Bolts.active("keytree") || !BoltConfig.keytree[kind])
             return false;
         if (kind === "swirl")
             menuBoltItem.strike({ path: Bolts.spiralPath(from, to, BoltConfig.keytree.swirlTurns), style: BoltConfig.styles.swirl });
@@ -449,6 +476,123 @@ OverlaySurface {
         }
     }
 
+    // ── Prompt mode ───────────────────────────────────────────────────────────
+    // A cmd/shift_cmd containing `{{query}}` asks for a line of text before
+    // it runs, e.g.
+    //   cmd: "firefox --new-window https://github.com/{{query}}"
+    //   shift_cmd: "firefox --new-window 'https://github.com/search?q='{{query:url}}"
+    // {{query}} is the text as typed; {{query:url}} is percent-encoded, for
+    // search terms inside a URL (spaces, &, #, ...). Double braces collide
+    // with neither URLs (braces aren't legal in one) nor sh (no brace
+    // expansion without a comma or `..`). Each placeholder becomes
+    // "$KEYTREE_QUERY" / "$KEYTREE_QUERY_URL", so the text is never parsed
+    // as shell - but that means a placeholder must not sit inside single
+    // quotes; leave it bare or inside double quotes.
+    readonly property var placeholders: ({
+        "{{query}}": '"$KEYTREE_QUERY"',
+        "{{query:url}}": '"$KEYTREE_QUERY_URL"'
+    })
+
+    function hasPlaceholder(cmd) {
+        return !!cmd && Object.keys(root.placeholders).some(p => cmd.includes(p));
+    }
+
+    property bool promptMode: false
+    property var promptNode: null
+    property string promptCmd: ""
+    property string promptText: ""
+    // PromptHistory list for this prompt; empty with `history: false`.
+    property string promptHistoryKey: ""
+    // Past entries matching what was typed (see PromptHistory.suggest),
+    // and the highlighted one - -1 for none, when Enter runs the input.
+    // Filtered on promptFilter, not promptText: text Tab fills in doesn't
+    // re-filter, so the list holds still while Tab cycles through it.
+    property string promptFilter: ""
+    property bool completing: false
+    onPromptTextChanged: {
+        if (!root.completing)
+            root.promptFilter = root.promptText;
+    }
+    readonly property var promptSuggestions: root.promptMode && root.promptHistoryKey ? PromptHistory.suggest(root.promptHistoryKey, root.promptFilter) : []
+    property int promptSelection: -1
+    onPromptSuggestionsChanged: root.promptSelection = -1
+
+    // Tab: fill in the next entry - the highlighted one first if the input
+    // doesn't read it yet - so repeated Tabs cycle through the list.
+    function completePrompt() {
+        const list = root.promptSuggestions;
+        if (list.length === 0)
+            return;
+        let i = Math.max(0, root.promptSelection);
+        if (list[i] === root.promptText)
+            i = (i + 1) % list.length;
+        root.completing = true;
+        root.promptText = list[i];
+        root.completing = false;
+        root.promptSelection = i;
+    }
+
+    function navigatePrompt(delta) {
+        const n = root.promptSuggestions.length;
+        if (n === 0)
+            return;
+        // From no highlight, Down goes to the first entry and Up to the last.
+        const from = root.promptSelection < 0 ? (delta > 0 ? -1 : n) : root.promptSelection;
+        root.promptSelection = ((from + delta) % n + n) % n;
+    }
+
+    function forgetPromptSelection() {
+        if (root.promptSelection < 0)
+            return;
+        PromptHistory.forget(root.promptHistoryKey, root.promptSuggestions[root.promptSelection]);
+    }
+
+    readonly property bool textMode: root.searchMode || root.promptMode
+
+    function enterPrompt(node, cmd, historyKey) {
+        root.promptNode = node;
+        root.promptCmd = cmd;
+        root.promptHistoryKey = historyKey;
+        root.promptText = "";
+        root.promptFilter = "";
+        root.promptSelection = -1;
+        root.promptMode = true;
+    }
+
+    function exitPrompt() {
+        root.promptMode = false;
+        root.promptNode = null;
+        root.promptCmd = "";
+        root.promptHistoryKey = "";
+        root.promptText = "";
+        root.promptSelection = -1;
+    }
+
+    function runPrompt() {
+        // A highlighted entry runs as is; otherwise the typed text.
+        const query = root.promptSelection >= 0 ? root.promptSuggestions[root.promptSelection] : root.promptText;
+        if (query.trim().length === 0)
+            return;
+        const historyKey = root.promptHistoryKey;
+        let cmd = root.promptCmd;
+        for (const p in root.placeholders)
+            cmd = cmd.split(p).join(root.placeholders[p]);
+        if (root.promptNode?.after_close) {
+            root.launched = true;
+            root.afterCloseCmd = cmd;
+            root.afterCloseQuery = query;
+        } else {
+            root.launch(cmd, query);
+        }
+        // After the launch, so the file write never delays it.
+        if (historyKey)
+            Qt.callLater(() => PromptHistory.record(historyKey, query));
+        root.requestClose();
+    }
+
+    // Prompt text for afterCloseCmd.
+    property string afterCloseQuery: ""
+
     // ── Input + view hosting (mirrors Main.qml) ───────────────────────────────
     Item {
         id: contentItem
@@ -548,6 +692,33 @@ OverlaySurface {
 
         Keys.onPressed: event => {
             const kb = KeytreeConfig.keybindings;
+            if (root.promptMode) {
+                const ctrl = (event.modifiers & Qt.ControlModifier) !== 0;
+                if (contentItem.keyMatches(event, kb.back))
+                    root.exitPrompt();
+                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                    root.runPrompt();
+                else if (event.key === Qt.Key_Tab)
+                    root.completePrompt();
+                else if (event.key === Qt.Key_Down || (ctrl && event.key === Qt.Key_N))
+                    root.navigatePrompt(1);
+                else if (event.key === Qt.Key_Up || (ctrl && event.key === Qt.Key_P))
+                    root.navigatePrompt(-1);
+                else if (event.key === Qt.Key_Delete && (event.modifiers & Qt.ShiftModifier))
+                    root.forgetPromptSelection();
+                else if (event.key === Qt.Key_Backspace)
+                    root.promptText = ctrl ? root.promptText.replace(/\S*\s*$/, "") : root.promptText.slice(0, -1);
+                else if (ctrl && event.key === Qt.Key_U)
+                    root.promptText = "";
+                else if (ctrl && event.key === Qt.Key_W)
+                    root.promptText = root.promptText.replace(/\S*\s*$/, "");
+                else if (ctrl && event.key === Qt.Key_V)
+                    root.promptText += (Quickshell.clipboardText ?? "").replace(/[\r\n]+/g, " ");
+                else if (!ctrl && event.text.length > 0 && event.text.charCodeAt(0) >= 32)
+                    root.promptText += event.text;
+                event.accepted = true;
+                return;
+            }
             if (root.searchMode) {
                 if (contentItem.keyMatches(event, kb.back))
                     root.exitSearch();
@@ -594,7 +765,7 @@ OverlaySurface {
         Loader {
             id: viewLoader
             anchors.fill: parent
-            visible: !root.searchMode
+            visible: !root.textMode
             sourceComponent: root.views[KeytreeConfig.layout.type] ?? ringView
             onLoaded: {
                 // Sizes and config first, then the level: views lay out
@@ -623,6 +794,16 @@ OverlaySurface {
             searchSelection: root.searchSelection
             visible: root.searchMode
         }
+
+        PromptView {
+            fontScale: root.fontScale
+            title: root.promptNode?.label ?? ""
+            icon: root.promptNode?.icon ?? ""
+            text: root.promptText
+            suggestions: root.promptSuggestions
+            selection: root.promptSelection
+            visible: root.promptMode
+        }
     }
 
     // Fixed-size and centered on the window, like contentItem - so bolt
@@ -635,7 +816,7 @@ OverlaySurface {
         anchors.centerIn: parent
         width: 4000
         height: 4000
-        visible: !root.searchMode
+        visible: !root.textMode
     }
 
     // Placed on its screen's overlay host (OverlaySurface).
