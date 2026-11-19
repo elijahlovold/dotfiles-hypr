@@ -13,8 +13,8 @@ import qs.modules.overlay
 // exported.
 //
 // Keys: j/k source, h/l seek 1s (H/L a frame), space play/pause, i/o set in/out,
-// f fps, w width, b browse for a file, Enter export, Esc close (or cancel a
-// running export).
+// f fps, w width, t caption (Enter/Esc leave the field), p caption top/bottom,
+// n caption font, v font variant, -/= caption size, b browse for a file, Enter export, Esc close (or cancel a running export).
 OverlaySurface {
     id: root
 
@@ -100,12 +100,46 @@ OverlaySurface {
     readonly property int fps: GifConfig.fpsOptions[root.fpsIndex]
     readonly property int outWidth: GifConfig.widthOptions[root.widthIndex]
 
+    // ── Caption ────────────────────────────────────────────────────────────
+    // Kept across sources while the window is open.
+    property string caption: ""
+    property bool captionTop: false
+    property int fontIndex: 0
+    property int variantIndex: 0
+    property int sizeIndex: 0
+    readonly property var captionFont: GifConfig.captionFonts[root.fontIndex]
+    readonly property var captionVariant: GifConfig.captionVariants[root.variantIndex]
+    readonly property var captionSize: GifConfig.captionSizes[root.sizeIndex]
+
+    function cycle(i, n, step) {
+        return (i + step + n) % n;
+    }
+    // Sizes step through in order of scale, not list order.
+    function stepSize(step) {
+        const order = GifConfig.captionSizes.map((s, i) => i).sort((a, b) => GifConfig.captionSizes[a].scale - GifConfig.captionSizes[b].scale);
+        const pos = order.indexOf(root.sizeIndex) + step;
+        root.sizeIndex = order[Math.max(0, Math.min(order.length - 1, pos))];
+    }
+
+    function editCaption() {
+        captionInput.forceActiveFocus();
+        captionInput.selectAll();
+    }
+    function endCaptionEdit() {
+        contentItem.forceActiveFocus();
+    }
+
     function exportGif() {
         if (!root.source || root.duration <= 0 || root.exporter.exporting)
             return;
         root.playing = false;
         player.pause();
-        root.exporter.startExport(root.source, root.inPoint / 1000, root.outPoint / 1000, root.fps, root.outWidth);
+        root.exporter.startExport(root.source, root.inPoint / 1000, root.outPoint / 1000, root.fps, root.outWidth, root.caption.trim() ? {
+            text: root.caption.trim(),
+            top: root.captionTop,
+            font: root.captionFont.family + ":" + root.captionVariant.fc,
+            scale: root.captionSize.scale
+        } : null);
     }
 
     function fmt(ms) {
@@ -208,6 +242,26 @@ OverlaySurface {
             case Qt.Key_W:
                 root.widthIndex = (root.widthIndex + 1) % GifConfig.widthOptions.length;
                 break;
+            case Qt.Key_T:
+                root.editCaption();
+                break;
+            case Qt.Key_P:
+                root.captionTop = !root.captionTop;
+                break;
+            case Qt.Key_N:
+                root.fontIndex = root.cycle(root.fontIndex, GifConfig.captionFonts.length, shift ? -1 : 1);
+                break;
+            case Qt.Key_V:
+                root.variantIndex = root.cycle(root.variantIndex, GifConfig.captionVariants.length, shift ? -1 : 1);
+                break;
+            case Qt.Key_Minus:
+            case Qt.Key_Underscore:
+                root.stepSize(-1);
+                break;
+            case Qt.Key_Equal:
+            case Qt.Key_Plus:
+                root.stepSize(1);
+                break;
             case Qt.Key_B:
                 root.exporter.browse();
                 break;
@@ -300,7 +354,7 @@ OverlaySurface {
 
             Rectangle {
                 width: parent.width
-                height: parent.height - timeline.height - infoRow.height - hintText.height - 3 * parent.spacing
+                height: parent.height - timeline.height - infoRow.height - captionRow.height - hintText.height - 4 * parent.spacing
                 radius: 6
                 color: "black"
                 clip: true
@@ -314,6 +368,30 @@ OverlaySurface {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: root.togglePlay()
+                }
+
+                // Caption preview, laid out on the picture the way drawtext
+                // will: centred, 1/20 of the height in from the edge.
+                Item {
+                    readonly property rect r: videoOut.contentRect
+                    x: r.x
+                    y: r.y
+                    width: r.width
+                    height: r.height
+                    visible: root.caption.trim().length > 0
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        y: root.captionTop ? parent.height / 20 : parent.height - height - parent.height / 20
+                        text: root.caption.trim()
+                        color: "white"
+                        style: Text.Outline
+                        styleColor: "black"
+                        font.family: root.captionFont.family
+                        font.weight: root.captionVariant.weight
+                        font.italic: root.captionVariant.italic
+                        font.pixelSize: Math.max(1, parent.height * root.captionSize.scale)
+                    }
                 }
             }
 
@@ -426,6 +504,101 @@ OverlaySurface {
                 }
             }
 
+            // Caption field: t focuses it, Enter or Esc hands the keys back.
+            Rectangle {
+                id: captionRow
+                width: parent.width
+                height: captionInput.implicitHeight + 10
+                radius: 4
+                color: captionInput.activeFocus ? Theme.hoverBg : "transparent"
+                border.width: 1
+                border.color: captionInput.activeFocus ? Theme.accent : Theme.pillBorder
+
+                TextInput {
+                    id: captionInput
+                    anchors.left: parent.left
+                    anchors.right: styleRow.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    text: root.caption
+                    onTextEdited: root.caption = captionInput.text
+                    color: Theme.text
+                    selectionColor: Theme.withAlpha(Theme.accent, 0.5)
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSize - 2
+                    clip: true
+
+                    Keys.onPressed: event => {
+                        switch (event.key) {
+                        case Qt.Key_Escape:
+                        case Qt.Key_Return:
+                        case Qt.Key_Enter:
+                        case Qt.Key_Up:
+                        case Qt.Key_Down:
+                            root.endCaptionEdit();
+                            event.accepted = true;
+                        }
+                    }
+
+                    Text {
+                        visible: !captionInput.text && !captionInput.activeFocus
+                        text: "t to add a caption"
+                        color: Theme.dimText
+                        font: captionInput.font
+                    }
+                }
+
+                // Caption style; each part is clickable too (right click
+                // steps back).
+                Row {
+                    id: styleRow
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.rightMargin: 8
+                    spacing: 10
+
+                    component StylePart: Text {
+                        id: part
+                        signal stepped(int step)
+                        color: Theme.dimText
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontSize - 3
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: -3
+                            cursorShape: Qt.PointingHandCursor
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            onClicked: mouse => part.stepped(mouse.button === Qt.RightButton ? -1 : 1)
+                        }
+                    }
+
+                    StylePart {
+                        text: root.captionFont.name
+                        onStepped: step => root.fontIndex = root.cycle(root.fontIndex, GifConfig.captionFonts.length, step)
+                    }
+                    StylePart {
+                        text: root.captionVariant.name
+                        onStepped: step => root.variantIndex = root.cycle(root.variantIndex, GifConfig.captionVariants.length, step)
+                    }
+                    StylePart {
+                        text: root.captionSize.name
+                        onStepped: step => root.stepSize(step)
+                    }
+                    StylePart {
+                        text: root.captionTop ? "top" : "bottom"
+                        onStepped: root.captionTop = !root.captionTop
+                    }
+                }
+
+                MouseArea {
+                    anchors.fill: captionInput
+                    acceptedButtons: Qt.NoButton
+                    cursorShape: Qt.IBeamCursor
+                }
+            }
+
             Item {
                 width: parent.width
                 height: hintText.height
@@ -434,11 +607,11 @@ OverlaySurface {
                     id: hintText
                     visible: !root.exporter.exporting
                     width: parent.width
-                    text: "h/l seek · H/L frame · space play · i/o in/out · f fps · w width · b browse · ⏎ export"
+                    text: "h/l seek · H/L frame · space play · i/o in/out · f fps · w width · t caption · p top/bottom · n font · v variant · -/= size · b browse · ⏎ export"
                     color: Theme.dimText
                     font.family: Theme.fontFamily
                     font.pixelSize: Theme.fontSize - 3
-                    elide: Text.ElideRight
+                    wrapMode: Text.WordWrap
                 }
 
                 Rectangle {

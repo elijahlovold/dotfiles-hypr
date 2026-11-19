@@ -34,19 +34,41 @@ Singleton {
     // palette is built from exactly the trimmed, scaled frames.
     // stats_mode=diff + diff_mode=rectangle favour what moves, which is
     // most of what a screen recording is about.
-    function startExport(source, startSec, endSec, fps, width) {
+    //
+    // caption: null, or { text, top, font (fontconfig pattern), scale
+    // (fraction of the GIF's height) }. The text goes in through a textfile
+    // (with expansion off) and the font as a file fc-match resolves, symlinked
+    // to a fixed path - drawtext's font= ignores styles, and neither needs
+    // filtergraph escaping this way. It's drawn after scaling so its size is
+    // relative to the GIF, and before palettegen so its colours are in the
+    // palette.
+    readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") || "/tmp"
+    readonly property string captionFile: root.runtimeDir + "/qs-gif-caption.txt"
+    readonly property string captionFontFile: root.runtimeDir + "/qs-gif-caption-font"
+
+    function startExport(source, startSec, endSec, fps, width, caption) {
         if (exportProc.running)
             return;
         const scale = width > 0 ? "scale=w='min(" + width + ",iw)':h=-2:flags=lanczos," : "";
-        const filter = "fps=" + fps + "," + scale + "split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle";
+        const text = caption ? "drawtext=textfile=" + root.captionFile + ":expansion=none:fontfile=" + root.captionFontFile +
+            ":fontcolor=white:borderw=3:bordercolor=black:fontsize=h*" + caption.scale.toFixed(4) +
+            ":x=(w-text_w)/2:y=" + (caption.top ? "h/20" : "h-text_h-h/20") + "," : "";
+        const filter = "fps=" + fps + "," + scale + text + "split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle";
         root.outFile = root.outPathFor(source);
         root.exportDuration = endSec - startSec;
         root.progress = 0;
         // ffmpeg won't create the output directory itself.
-        exportProc.command = ["sh", "-c", 'mkdir -p "$0" && exec "$@"', root.outFile.slice(0, root.outFile.lastIndexOf("/")),
+        exportProc.command = ["sh", "-c", 'mkdir -p "$0" && { [ -z "$CAPTION" ] || { printf %s "$CAPTION" > "$CAPTION_FILE" && ' +
+            'ln -sf "$(fc-match -f %{file} "$CAPTION_FONT")" "$CAPTION_FONT_FILE"; }; } && exec "$@"', root.outFile.slice(0, root.outFile.lastIndexOf("/")),
             "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", "-y",
             "-ss", startSec.toFixed(3), "-t", (endSec - startSec).toFixed(3), "-i", source,
             "-filter_complex", filter, "-loop", "0", root.outFile];
+        exportProc.environment = {
+            CAPTION: caption ? caption.text : "",
+            CAPTION_FILE: root.captionFile,
+            CAPTION_FONT: caption ? caption.font : "",
+            CAPTION_FONT_FILE: root.captionFontFile
+        };
         exportProc.running = true;
     }
 
