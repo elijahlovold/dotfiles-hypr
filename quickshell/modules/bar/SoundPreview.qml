@@ -72,6 +72,80 @@ PillPopup {
         }
     }
 
+    // ── Keyboard ─────────────────────────────────────────────────────────
+    // One flat cursor over every selectable row, top to bottom: output
+    // devices (each followed by its ports), then input devices. Tracked by
+    // key rather than index so a device list or port refresh doesn't move
+    // it. j/k/gg/G move, Enter picks, h/l nudge the volume and Space mutes
+    // the section the cursor is in.
+    readonly property var entries: {
+        const out = [];
+        for (const n of popup.sinks) {
+            out.push({ key: "node:" + n.name, isSink: true, node: n });
+            const info = popup.sinkPorts[n.name];
+            if ((info?.ports.length ?? 0) > 1)
+                for (const p of info.ports)
+                    out.push({ key: "port:" + n.name + ":" + p.name, isSink: true, node: n, port: p.name });
+        }
+        for (const n of popup.sources)
+            out.push({ key: "node:" + n.name, isSink: false, node: n });
+        return out;
+    }
+    property string cursorKey: ""
+    readonly property int cursorIndex: popup.entries.findIndex(e => e.key === popup.cursorKey)
+    readonly property var cursorEntry: popup.entries[popup.cursorIndex] ?? null
+
+    function moveCursor(index) {
+        if (popup.entries.length > 0)
+            popup.cursorKey = popup.entries[Math.max(0, Math.min(popup.entries.length - 1, index))].key;
+    }
+
+    onKeyboardActivated: {
+        if (popup.cursorIndex < 0 && popup.sink)
+            popup.cursorKey = "node:" + popup.sink.name;
+        if (popup.cursorIndex < 0)
+            popup.moveCursor(0);
+    }
+
+    onVimAction: (name, count) => {
+        const node = popup.cursorEntry ? (popup.cursorEntry.isSink ? popup.sink : popup.source) : popup.sink;
+        switch (name) {
+        case "down":
+            popup.moveCursor(Math.max(popup.cursorIndex, 0) + count);
+            break;
+        case "up":
+            popup.moveCursor(Math.max(popup.cursorIndex, 0) - count);
+            break;
+        case "top":
+            popup.moveCursor(0);
+            break;
+        case "bottom":
+            popup.moveCursor(popup.entries.length - 1);
+            break;
+        case "left":
+        case "right":
+            if (node?.audio)
+                node.audio.volume = Math.max(0, Math.min(1, node.audio.volume + (name === "right" ? 0.05 : -0.05) * count));
+            break;
+        case "space":
+            if (node?.audio)
+                node.audio.muted = !node.audio.muted;
+            break;
+        case "select": {
+            const e = popup.cursorEntry;
+            if (!e)
+                break;
+            if (e.port)
+                Quickshell.execDetached(["pactl", e.isSink ? "set-sink-port" : "set-source-port", e.node.name, e.port]);
+            else if (e.isSink)
+                Pipewire.preferredDefaultAudioSink = e.node;
+            else
+                Pipewire.preferredDefaultAudioSource = e.node;
+            break;
+        }
+        }
+    }
+
     // Volume drags fire a stream of sink change events - coalesce them.
     Timer {
         id: portsRefresh
@@ -263,6 +337,8 @@ PillPopup {
         required property bool isSink
         // node name -> port info, see popup.sinkPorts
         property var portInfo: ({})
+        // Keyboard cursor row key (see popup.entries), "" when not focused.
+        property string cursorKey: ""
         readonly property real volume: section.current?.audio?.volume ?? 0
         readonly property bool muted: section.current?.audio?.muted ?? false
 
@@ -370,10 +446,13 @@ PillPopup {
                 width: section.width
 
                 Rectangle {
+                    readonly property bool isCursor: section.cursorKey === "node:" + deviceRow.modelData.name
                     width: section.width
                     height: 24
                     radius: 4
-                    color: deviceMa.containsMouse ? Theme.hoverBg : "transparent"
+                    color: deviceMa.containsMouse || isCursor ? Theme.hoverBg : "transparent"
+                    border.width: isCursor ? 1 : 0
+                    border.color: Theme.accent
 
                     Row {
                         anchors.left: parent.left
@@ -420,11 +499,14 @@ PillPopup {
                         id: portRow
                         required property var modelData
                         readonly property bool isActive: portRow.modelData.name === deviceRow.info.active
+                        readonly property bool isCursor: section.cursorKey === "port:" + deviceRow.modelData.name + ":" + portRow.modelData.name
 
                         width: section.width
                         height: 20
                         radius: 4
-                        color: portMa.containsMouse ? Theme.hoverBg : "transparent"
+                        color: portMa.containsMouse || portRow.isCursor ? Theme.hoverBg : "transparent"
+                        border.width: portRow.isCursor ? 1 : 0
+                        border.color: Theme.accent
 
                         Row {
                             anchors.left: parent.left
@@ -481,6 +563,7 @@ PillPopup {
                 nodes: popup.sinks
                 isSink: true
                 portInfo: popup.sinkPorts
+                cursorKey: popup.keyboardActive ? popup.cursorKey : ""
             }
 
             DeviceSection {
@@ -488,6 +571,7 @@ PillPopup {
                 current: popup.source
                 nodes: popup.sources
                 isSink: false
+                cursorKey: popup.keyboardActive ? popup.cursorKey : ""
             }
         }
     }
